@@ -1,0 +1,14 @@
+OpenLink XMLA Explorer
+======================
+
+The XMLA Explorer is a simple iSQL-like sample HTML5 program which
+allows connection to any browser accessible XMLA web service endpoint.
+
+Once connected, a list of available data sources is displayed, and
+users can easily explore the database schema and/or execute queries
+against them.
+
+
+Documentation, binaries and installation instructions can be found at:
+
+http://wikis.openlinksw.com/dataspace/owiki/wiki/UdaWikiWeb/HTML5XMLAExplorerSampleProg
