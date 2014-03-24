@@ -1,0 +1,54 @@
+#
+#  CREDITS
+#
+#  This file is part of the OpenLink XMLA Explorer  project.
+#
+#  Copyright (C) 2014 OpenLink Software
+#
+
+Included Functionality
+======================
+
+The OpenLink XMLA Explorer project wishes to acknowledge incorporation
+of code from the following projects:
+
+
+Ample SDK
+<http://www.amplesdk.com/>
+
+    Ample SDK is a standard-based cross-browser JavaScript UI
+    Framework for building Rich Internet Applications. It employs
+    XML technologies (such as XUL, SVG or HTML5) for UI layout, CSS
+    for UI style and JavaScript with standard DOM/jQuery APIs for
+    application logic. It equalizes browsers and brings technologies
+    support to those missing any.
+
+    Copyright (c) 2012 Sergey Ilinsky
+
+    Distributed under a MIT license
+    <http://www.amplesdk.com/about/licensing/>
+
+
+Throbber.js
+<https://github.com/aino/>
+
+    Throbber.js a really nice looking spinner that works on top of images.
+
+    Copyright (c) 2011, Aino
+
+    Distributed under a MIT license
+
+
+xmla_min.js
+<https://github.com/rpbouman/xmla4js>
+
+    Xmla4js is a standalone javascript library that provides basic
+    XML for Analysis (XML/A) capabilities, allowing javascript
+    developers to access data and metadata from OLAP provides for
+    use in rich (web) applications.
+
+    Copyright 2009,2010,2011 Roland Bouman
+
+    Distributed under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation, either
+    version 3 of the License, or (at your option) any later version.
