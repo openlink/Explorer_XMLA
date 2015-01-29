@@ -81,23 +81,18 @@
   </SELECT>
    &nbsp;&nbsp;
   </td>
-  <td>
-   User:
+  <td id="uname">not logged in
   </td>
   <td>
-    <input id="uid" value="vdb" style="width: 100px;" type="text" onkeyup="onKeyUp('uid',event)">
-  </td>
-  <td>
-    Password:
-  </td>
-  <td>
-    <input id="pwd" value="vdb" style="width: 100px;" type="password" onkeyup="onKeyUp('pwd',event)">
-  </td>
-  <td>
+    |
     <input id="connect" value="Connect" onclick="Connection()" type="button" onkeyup="onKeyUp('connect',event)">
+<!--
+    <a href="/val/authenticate.vsp?realm=urn%3Avirtuoso%3Aval%3Arealms%3Adefault&res=/XMLAexplorer/XMLAexplorer.html" id="login">Login</a>
+    <a href="/val/logout.vsp?returnto=/XMLAexplorer/XMLAexplorer.html" id="logout">Logout</a>
+-->
   </td>
   <td style="text-align: right" width="100px">
-   Ver: 1.33
+   Ver: 1.35
   </td>
   </tr>
   </table>
