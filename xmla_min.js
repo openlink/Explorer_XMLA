@@ -21,7 +21,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */    
 
-var Xmla;(function(){var _soap="http://www.w3.org/2003/05/",_xmlnsSOAPenvelope=_soap+"soap-envelope",_xmlnsSOAPenvelope1="http://schemas.xmlsoap.org/soap/envelope/",_xmlnsSOAPenvelopePrefix="SOAP-ENV",_xmlnsIsSOAPenvelope="xmlns:"+_xmlnsSOAPenvelopePrefix+"=\""+_xmlnsSOAPenvelope+"\"",_SOAPencodingStyle=_xmlnsSOAPenvelopePrefix+":encodingStyle=\""+_soap+"soap-encoding\"",_ms="urn:schemas-microsoft-com:",_xmlnsXmla=_ms+"xml-analysis",_xmlnsIsXmla="xmlns=\""+_xmlnsXmla+"\"",_xmlnsSQLPrefix="sql",_xmlnsSQL=_ms+"xml-sql",_xmlnsSchema="http://www.w3.org/2001/XMLSchema",_xmlnsSchemaPrefix=window.ActiveXObject?"s":"xsd",_xmlnsSchemaInstance="http://www.w3.org/2001/XMLSchema-instance",_xmlnsSchemaInstancePrefix="xsi",_xmlnsRowset=_xmlnsXmla+":rowset",_xmlnsEmpty=_xmlnsXmla+":empty",_xmlnsResultset=_xmlnsXmla+":mddataset",_useAX=window.ActiveXObject?true:false;function _ajax(options){var xhr,handlerCalled=false,handler=function(){handlerCalled=true;switch(xhr.readyState){case 0:options.aborted(xhr);break;case 4:if(xhr.status===200){options.complete(xhr);}
+var Xmla;(function(){(function(Date,undefined){var origParse=Date.parse,numericKeys=[1,4,5,6,7,10,11];Date.parse=function(date){var timestamp,struct,minutesOffset=0;if((struct=/^(\d{4}|[+\-]\d{6})(?:-(\d{2})(?:-(\d{2}))?)?(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{3}))?)?(?:(Z)|([+\-])(\d{2})(?::(\d{2}))?)?)?$/.exec(date))){for(var i=0,k;(k=numericKeys[i]);++i){struct[k]=+struct[k]||0;}
+struct[2]=(+struct[2]||1)-1;struct[3]=+struct[3]||1;if(struct[8]!=='Z'&&struct[9]!==undefined){minutesOffset=struct[10]*60+struct[11];if(struct[9]==='+'){minutesOffset=0-minutesOffset;}}
+timestamp=Date.UTC(struct[1],struct[2],struct[3],struct[4],struct[5]+minutesOffset,struct[6],struct[7]);}
+else{timestamp=origParse?origParse(date):NaN;}
+return timestamp;};function pad(number){var r=String(number);if(r.length===1){r='0'+r;}
+return r;};Date.prototype.toString=function(){var s=this.getFullYear()
++'-'+pad(this.getMonth()+1)
++'-'+pad(this.getDate())
++'T'+pad(this.getHours())
++':'+pad(this.getMinutes())
++':'+pad(this.getSeconds())
++'.'+String((this.getMilliseconds()/1000).toFixed(3)).slice(2,5);var tzInHours=-this.getTimezoneOffset()/60;s+=(tzInHours>0)?'+':'-';s+=pad(tzInHours)+':';var tzInMin=this.getTimezoneOffset()%60;tzInMin=tzInMin<0?-tzInMin:tzInMin;s+=pad(tzInMin);return s;};}(Date));var _soap="http://www.w3.org/2003/05/",_xmlnsSOAPenvelope=_soap+"soap-envelope",_xmlnsSOAPenvelope1="http://schemas.xmlsoap.org/soap/envelope/",_xmlnsSOAPenvelopePrefix="SOAP-ENV",_xmlnsIsSOAPenvelope="xmlns:"+_xmlnsSOAPenvelopePrefix+"=\""+_xmlnsSOAPenvelope+"\"",_SOAPencodingStyle=_xmlnsSOAPenvelopePrefix+":encodingStyle=\""+_soap+"soap-encoding\"",_ms="urn:schemas-microsoft-com:",_xmlnsXmla=_ms+"xml-analysis",_xmlnsIsXmla="xmlns=\""+_xmlnsXmla+"\"",_xmlnsSQLPrefix="sql",_xmlnsSQL=_ms+"xml-sql",_xmlnsSchema="http://www.w3.org/2001/XMLSchema",_xmlnsSchemaPrefix=window.ActiveXObject?"s":"xsd",_xmlnsSchemaInstance="http://www.w3.org/2001/XMLSchema-instance",_xmlnsSchemaInstancePrefix="xsi",_xmlnsRowset=_xmlnsXmla+":rowset",_xmlnsEmpty=_xmlnsXmla+":empty",_xmlnsResultset=_xmlnsXmla+":mddataset",_useAX=window.ActiveXObject?true:false;function _ajax(options){var xhr,handlerCalled=false,handler=function(){handlerCalled=true;switch(xhr.readyState){case 0:options.aborted(xhr);break;case 4:if(xhr.status===200){options.complete(xhr);}
 else{options.error(Xmla.Exception._newError("HTTP_ERROR","_ajax",options,xhr.responseText));}
 break;}};if(_useAX){xhr=new ActiveXObject("MSXML2.XMLHTTP.3.0");}
 else{xhr=new XMLHttpRequest();}
@@ -33,7 +44,7 @@ xhr.setRequestHeader("Content-Type","application/soap+xml");if(!_useAX)
 xhr.overrideMimeType("text/xml");xhr.send(options.data);if(!options.async&&!handlerCalled){handler.call(xhr);}
 return xhr;}
 function _isUnd(arg){return typeof(arg)==="undefined";}
-function _xmlEncodeListEntry(value){return value.replace(/\&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function _xmlEncodeListEntry(value){return value!=null?value.replace(/\&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"):value;}
 var _getElementsByTagNameNS=document.getElementsByTagNameNS?function(node,ns,prefix,tagName){return node.getElementsByTagNameNS(ns,tagName);}:function(node,ns,prefix,tagName){if(prefix){return node.getElementsByTagName(prefix+":"+tagName);}
 else{return node.getElementsByTagName(tagName);}};var _getAttributeNS=document.documentElement.getAttributeNS?function(element,ns,prefix,attributeName){return element.getAttributeNS(ns,attributeName);}:function(element,ns,prefix,attributeName){if(prefix){return element.getAttribute(prefix+":"+attributeName);}
 else{return element.getAttribute(attributeName);}};function _getXmlaSoapList(container,listType,items){var numItems,i,entry,property,item,msg="<"+container+">";if(items){msg+=" <"+listType+">";for(property in items){if(items.hasOwnProperty(property)){item=items[property];msg+="<"+property+">";if(typeof(item)==="array"){for(entry,i=0,numItems=item.length;i<numItems;i+=1){entry=item[i];msg+="<Value>"+_xmlEncodeListEntry(entry)+"</Value>";}}else{msg+=_xmlEncodeListEntry(item);}
@@ -72,15 +83,15 @@ if(!options.password&&this.options.password){options.password=this.options.passw
 var soapMessage=_getXmlaSoapMessage(options);this.soapMessage=soapMessage;var myXhr;var ajaxOptions={async:options.async,timeout:options.requestTimeout,data:soapMessage,error:function(exception){options.exception=exception;xmla._requestError(options);},complete:function(xhr){options.xhr=xhr;xmla._requestSuccess(options);},url:options.url,method:options.method};if(options.username){ajaxOptions.username=options.username;}
 if(options.password){ajaxOptions.password=options.password;}
 if(this._fireEvent(Xmla.EVENT_REQUEST,options,true)&&((options.method==Xmla.METHOD_DISCOVER&&this._fireEvent(Xmla.EVENT_DISCOVER,options))||(options.method==Xmla.METHOD_EXECUTE&&this._fireEvent(Xmla.EVENT_EXECUTE,options)))){myXhr=_ajax(ajaxOptions);}
-return this.response;},_requestError:function(options){this._fireEvent("error",options);},_requestSuccess:function(request){var xhr=request.xhr;this.responseText=xhr.responseText;if(_useAX)
+return this.response;},_requestError:function(options){if(options.error)options.error.call(options.scope?options.scope:null,this,options,options.exception);if(options.callback)options.callback.call(options.scope?options.scope:null,Xmla.EVENT_ERROR,this,options,options.exception);this._fireEvent("error",options);},_requestSuccess:function(request){var xhr=request.xhr;this.responseText=xhr.responseText;if(_useAX)
 this.responseXML=_createXmlDoc(this.responseText);else
 this.responseXML=xhr.responseXML;var method=request.method;var soapFault=_getElementsByTagNameNS(this.responseXML,_xmlnsSOAPenvelope,_xmlnsSOAPenvelopePrefix,"Fault");var soapFault1=_getElementsByTagNameNS(this.responseXML,_xmlnsSOAPenvelope1,_xmlnsSOAPenvelopePrefix,"Fault");if(soapFault.length||soapFault1.length){if(soapFault.length)
 soapFault=soapFault.item(0);else
 soapFault=soapFault1.item(0);request.exception=new Xmla.Exception(Xmla.Exception.TYPE_ERROR,soapFault.getElementsByTagName("faultcode").item(0).childNodes.item(0).data,soapFault.getElementsByTagName("faultstring").item(0).childNodes.item(0).data,null,"_requestSuccess",request);switch(method){case Xmla.METHOD_DISCOVER:this._fireEvent(Xmla.EVENT_DISCOVER_ERROR,request);break;case Xmla.METHOD_EXECUTE:this._fireEvent(Xmla.EVENT_EXECUTE_ERROR,request);break;}
-this._fireEvent(Xmla.EVENT_ERROR,request);}
+if(request.error)request.error.call(request.scope?request.scope:null,this,request,request.exception);if(request.callback)request.callback.call(request.scope?request.scope:null,Xmla.EVENT_ERROR,this,request,request.exception);this._fireEvent(Xmla.EVENT_ERROR,request);}
 else{switch(method){case Xmla.METHOD_DISCOVER:var rowset=new Xmla.Rowset(this.responseXML,request.requestType);request.rowset=rowset;this.response=rowset;this._fireEvent(Xmla.EVENT_DISCOVER_SUCCESS,request);break;case Xmla.METHOD_EXECUTE:var resultset;var format=request.properties[Xmla.PROP_FORMAT];switch(format){case Xmla.PROP_FORMAT_TABULAR:resultset=new Xmla.Rowset(this.responseXML);break;case Xmla.PROP_FORMAT_MULTIDIMENSIONAL:break;}
 request.resultset=resultset;this.response=resultset;this._fireEvent(Xmla.EVENT_EXECUTE_SUCCESS,request);break;}
-this._fireEvent(Xmla.EVENT_SUCCESS,request);}},execute:function(options){var properties=options.properties;if(!properties){properties={};options.properties=properties;}
+if(request.success)request.success.call(request.scope?request.scope:null,this,request,this.response);if(request.callback)request.callback.call(request.scope?request.scope:null,Xmla.EVENT_SUCCESS,this,request,this.response);this._fireEvent(Xmla.EVENT_SUCCESS,request);}},execute:function(options){var properties=options.properties;if(!properties){properties={};options.properties=properties;}
 _applyProps(properties,this.options.properties,false)
 if(!properties[Xmla.PROP_CONTENT]){properties[Xmla.PROP_CONTENT]=Xmla.PROP_CONTENT_SCHEMADATA;}
 if(!properties[Xmla.PROP_FORMAT]){options.properties[Xmla.PROP_FORMAT]=Xmla.PROP_FORMAT_MULTIDIMENSIONAL;}
@@ -109,7 +120,7 @@ else{minOccurs=parseInt(maxOccurs,10);}}
 else{maxOccurs=1;}
 valueConverter=this._getValueConverter(type);this.fields[fieldLabel]={name:fieldName,label:fieldLabel,index:this._fieldCount++,type:type,jsType:valueConverter.jsType,minOccurs:minOccurs,maxOccurs:maxOccurs,getter:this._createFieldGetter(fieldName,valueConverter.func,minOccurs,maxOccurs)};this.fieldOrder.push(fieldLabel);}}
 else{var testEmpty=_getElementsByTagNameNS(this._node,_xmlnsEmpty,null,"root");if(testEmpty.length==0)
-Xmla.Exception._newError("ERROR_PARSING_RESPONSE","Xmla.Rowset",this._node,null)._throw();}},_boolConverter:function(val){return val==="true"?true:false;},_intConverter:function(val){return parseInt(val,10);},_floatConverter:function(val){return parseFloat(val,10);},_textConverter:function(val){return val;},_dateTimeConverter:function(val){return Date.parse(val);},_restrictionsConverter:function(val){return val;},_arrayConverter:function(nodes,valueConverter){var arr=[],numNodes=nodes.length,node;for(var i=0;i<numNodes;i+=1){node=nodes.item(i);arr.push(valueConverter(this._elementText(node)));}
+Xmla.Exception._newError("ERROR_PARSING_RESPONSE","Xmla.Rowset",this._node,null)._throw();}},_boolConverter:function(val){return val==="true"?true:false;},_intConverter:function(val){return parseInt(val,10);},_floatConverter:function(val){return parseFloat(val,10);},_textConverter:function(val){return val;},_dateTimeConverter:function(val){return new Date(Date.parse(val));},_restrictionsConverter:function(val){return val;},_arrayConverter:function(nodes,valueConverter){var arr=[],numNodes=nodes.length,node;for(var i=0;i<numNodes;i+=1){node=nodes.item(i);arr.push(valueConverter(this._elementText(node)));}
 return arr;},_elementText:function(el){if(el==null)
 return null;if(el.innerText){return el.innerText;}
 else

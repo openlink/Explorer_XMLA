@@ -20,6 +20,9 @@
 -->
   <head>
     <title>XMLA Explorer</title>
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
     <script type="text/javascript" src="xmla_min.js"></script>
     <script type="text/javascript" src="webdb_xmla_min.js"></script>
     <script type="text/javascript" src="./ample/runtime.js"></script>
@@ -28,8 +31,9 @@
 
     <link type="text/ample+css" href="./ample/languages/xul/themes/default/style.css" rel="stylesheet"/>
 
+    <script type="text/javascript" src="jsuri.js"></script>
     <script type="text/javascript" src="throbber.js"></script>
-    <script type="text/javascript" src="XMLAexplorer.js"></script>
+    <script type="text/javascript" src="XMLAexplorer.js?v=1.55"></script>
 
     <style type="text/css">
 	html, body {
@@ -92,13 +96,12 @@
 -->
   </td>
   <td style="text-align: right" width="100px">
-   Ver: 1.35
+   Ver: 1.55
   </td>
   </tr>
   </table>
 
    <script type="application/ample+xml">
-
 <xul:page
   xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -206,7 +209,7 @@
 	        <xul:spacer width="10"/>
 	        <a id="exec_plink" target="_blank" href="" > permalink </a>
 	        <xul:spacer width="10"/>
-                <xul:button id="buttonPrev" label="Prev_Query" disabled="true" onclick="prevQuery()" />
+                <xul:button id="buttonPrev" label="Back" disabled="true" onclick="prevQuery()" />
 
               </xul:hbox>
    	      <xul:spacer height="5"/>
@@ -249,9 +252,7 @@
 
    <xul:box align="center" pack="stretch">
     <canvas id="cv" width="30" height="30"></canvas>
-<!--
-    <xul:image src="throbber.gif"/>
--->
+<!--    <xul:image src="throbber.gif"/> -->
    </xul:box>
 </xul:window>
 
@@ -261,7 +262,7 @@
 
    <xul:hbox align="center" pack="stretch">
     <xul:spacer width="20"/>
-    Restore
+    Resolving URI
     <xul:spacer width="20"/>
     <xul:image src="throbber.gif"/>
     <xul:spacer width="20"/>

@@ -39,8 +39,10 @@ var gQUAD_KEYLIST_START = 6;
 
 var gSTRUCT_SWAP_COL = { c1:4, c2:11};
 
+var MAX_FETCH = 500;
 
 var gDB = null;
+var gDBa = null;
 var q_query_hist = []; // {sql: queryString}
 var q_query_has_executed = null; 
 var q_fkey_hist = [];
@@ -79,13 +81,21 @@ var g_sid = null;
 
 ample.ready(function() {
 
-  var cookie = read_cookie ('sid');
+  var cookie = getCookie('sid');
   if (cookie)
     {
       g_sid = cookie;
-      get_uname();
+      get_uname(get_xmla_origin());
+    }
+  else
+    {
+      TryConnectAndCheckPermalink();
     }
 
+});
+
+function TryConnectAndCheckPermalink()
+{
   var params = document.location.search.substr(1).split("&");
   var plink = null;
   for(var i=0; i < params.length; i++){
@@ -101,15 +111,51 @@ ample.ready(function() {
   else if (g_sid != null) {
      Connection();
   }
-
-});
-
+} 
 
 
+/**
 function read_cookie (k) 
 {
   return (document.cookie.match('(^|; )' + k + '=([^;]*)') || 0)[2];
 }
+**/
+
+function getCookie(name) 
+{
+  var matches = document.cookie.match(new RegExp(
+      "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+    ))
+  return matches ? decodeURIComponent(matches[1]) : undefined
+}
+ 
+function setCookie(name, value, props) 
+{
+  props = props || {}
+  var exp = props.expires
+  if (typeof exp == "number" && exp) {
+      var d = new Date()
+      d.setTime(d.getTime() + exp*1000)
+      exp = props.expires = d
+  }
+  if(exp && exp.toUTCString) { props.expires = exp.toUTCString() }
+ 
+  value = encodeURIComponent(value)
+  var updatedCookie = name + "=" + value
+  for(var propName in props){
+      updatedCookie += "; " + propName
+      var propValue = props[propName]
+      if(propValue !== true){ updatedCookie += "=" + propValue }
+  }
+  document.cookie = updatedCookie
+ 
+}
+ 
+
+function deleteCookie(name) {
+    setCookie(name, null, { expires: -1 })
+}
+
 
 
 function xhr_new ()
@@ -133,16 +179,32 @@ function xhr_new ()
 }
 
 
-function do_logout ()
+function do_logout (url_origin)
 {
-  var xhr = xhr_new ();
-  xhr.open ('GET', '/val/logout.vsp?sid=' + g_sid, false);
-  xhr.send (null);
-  g_sid = null;
+  if (g_sid!=null) {
+    var xhr = xhr_new ();
+    xhr.open ('GET', url_origin+'/val/logout.vsp?sid=' + g_sid, false);
+    xhr.send (null);
+    g_sid = null;
+  }
+  set_UserName(null);
+  var bt = document.getElementById("connect");
+  bt.value="Connect";
+  deleteCookie('sid');
+}
+
+function set_UserName (uname)
+{
+  var l = document.getElementById("uname");
+  if (!uname) {
+    l.innerHTML = "not logged in";
+  } else {
+    l.innerHTML = "User: "+uname;
+  }
 }
 
 
-function get_uname ()
+function get_uname (url_origin)
 {
   var xhr = xhr_new ();
   xhr.onreadystatechange = function() 
@@ -151,31 +213,37 @@ function get_uname ()
 	{
 	  if (xhr.status===200)
 	    {
-	      var l = document.getElementById("uname");
+	      var t = xhr.responseText;
 	      var data = JSON.parse (xhr.responseText);
 	      var txt;
 	      if (Object.keys(data).length > 0 && data[Object.keys(data)[0]]["http://rdfs.org/sioc/ns#name"] != null)
 	        {
 	          txt = (data[Object.keys(data)[0]]["http://rdfs.org/sioc/ns#name"][0].value);
-	          l.innerHTML = "User: "+txt;
+	          set_UserName(txt);
 	        }
 	      else
 	        {
-	          alert ("Non-SQL account");
-	          do_logout ();
+//	          alert ("Non-SQL account");
+//	          do_logout (url_origin);
+                  set_UserName("");
 	        }
+
+              TryConnectAndCheckPermalink();
 	    }
 	  else
 	    {
-	      alert ("Non-SQL account");
-	      do_logout ();
+//	      alert ("Get UserName failed: HTTP_ERR="+xhr.status+"\n Try Login Again...");
+	      do_logout (url_origin);
+	      g_sid = null;
+	      Connection();
 	    }
 	}
     }
-  xhr.open ('GET', '/val/api/profile?sid=' + g_sid, false);
+  xhr.open ('GET', url_origin+'/val/api/profile?sid=' + g_sid, false);
   xhr.setRequestHeader ('Accept', 'application/json');
   xhr.send (null);
 }
+
 
 
 
@@ -184,7 +252,6 @@ var dsnloaded = false;
 function initDSN() {
   if (!dsnloaded) {
     try {
-//      if (!XMLAUtils)
       if (!XMLALite)
         fFAIL = true;
     } catch (ex) {
@@ -194,7 +261,6 @@ function initDSN() {
     }
 
     try{
-//      var rows = XMLAUtils.discoverDataSources(document.getElementById("url").value).rows;
       var rows = XMLALite.discoverDataSources(document.getElementById("url").value).rows;
       var box = document.getElementById("dsn");
       box.options.length = 0;
@@ -223,22 +289,38 @@ function showBadConf()
 }
 
 
+function get_xmla_origin()
+{
+  var url = document.getElementById("url").value;
+
+  if (url.indexOf("http://")==0 || url.indexOf("https://")==0) {
+    url = new Uri(url.trim());
+    return url.origin();
+  }
+  else
+    return location.protocol+ "//"+location.host;
+}
+
+
 
 
 var connH = null;
 
 function Connection() 
 {
-  var callback = location.pathname + location.search;
+  var callback = location.protocol+ "//"+location.host + location.pathname + location.search;
 
   if (g_sid == null) {
-    window.location = location.protocol+ "//"+location.host +"/val/authenticate.vsp?realm=urn%3Avirtuoso%3Aval%3Arealms%3Adefault&res="+callback;
+//    var url = document.getElementById("url").value;
+//    window.location = get_xmla_origin() +"/val/authenticate.vsp?realm=urn%3Avirtuoso%3Aval%3Arealms%3Adefault&sidParamName=sid&res="+url+"&returnto="+callback;
+    window.location = get_xmla_origin() +"/val/authenticate.vsp?realm=urn%3Avirtuoso%3Aval%3Arealms%3Adefault&sidParamName=sid&res="+callback;
     return;
   }
 
 
   if (Connected) {
-    window.location = location.protocol+ "//"+location.host + "/val/logout.vsp?returnto="+callback;
+    do_logout(get_xmla_origin());
+//    window.location = get_xmla_origin() + "/val/logout.vsp?returnto="+callback;
     return;
   }
 
@@ -273,135 +355,159 @@ function DoConnect(path)
     var uid = "";
     var pwd = "";
 
-    if (g_sid)
-      url = url + '?sid=' + g_sid;
-
-    gDB = XMLALite.openXMLADatabaseSync(url, dsn, "", uid, pwd,"");
-
     gPLINK.url = url;
     gPLINK.dsn = dsn;
     gPLINK.uid = uid;
     gPLINK.pwd = pwd;
 
-    gDB.transaction({
+    if (g_sid)
+      url = url + '?sid=' + g_sid;
+
+    gDB = XMLALite.openXMLADatabaseSync(url, dsn, "", uid, pwd,"");
+    gDBa = XMLALite.openXMLADatabase(url, dsn, "", uid, pwd,"");
+
+    var trErr = {
+      handleEvent: function(err) { 
+        var bt = document.getElementById("connect");
+        bt.value="Connect";
+        if (!g_permalink_view)
+          bt.disabled=false;
+        ShowError(err);
+      } 
+    };
+
+    var hErr = {
+      handleEvent: function(tr, err) { 
+        trErr.handleEvent(err);
+        return true; 
+      } 
+    };
+
+    gDBa.transaction({
 	handleEvent: function(trans)
 	{
 	  try {
+	    trans.getTables("%","%","%","TABLE,VIEW,SYSTEM TABLE,SYSTEM VIEW",
+	      { 
+	        handleEvent:function(trans, rs)
+	        {
+	          var md = rs.metaData;
+                  var rows = rs.rows;
+	          var data = new Object();
 
-//            var rs = trans.getTables("%","%","%","");
-            var rs = trans.getTables("%","%","%","TABLE,VIEW,SYSTEM TABLE,SYSTEM VIEW");
-            var md = rs.metaData;
-            var rows = rs.rows;
-	    var data = new Object();
+                  for(var i=0; i < rows.length; i++) {
+                    var tcols = rows.item(i);
+                    var cat = tcols[md.getColumnName(0)];
+                    var sch = tcols[md.getColumnName(1)];
+                    var tbl = tcols[md.getColumnName(2)];
 
-            for(var i=0; i < rows.length; i++) {
-              var tcols = rows.item(i);
-              var cat = tcols[md.getColumnName(0)];
-              var sch = tcols[md.getColumnName(1)];
-              var tbl = tcols[md.getColumnName(2)];
+                    cat = cat==null ? "":cat;
+                    sch = sch==null ? "":sch;
 
-              cat = cat==null ? "":cat;
-              sch = sch==null ? "":sch;
+                    if (typeof(data[cat])==="undefined" || data[cat]===null) {
+                      data[cat] = new Object();
+                    }
+                    if (typeof(data[cat][sch])==="undefined" || data[cat][sch]===null) {
+                      data[cat][sch] = [];
+                    }
 
-              if (typeof(data[cat])==="undefined" || data[cat]===null) {
-                data[cat] = new Object();
-              }
-              if (typeof(data[cat][sch])==="undefined" || data[cat][sch]===null) {
-                data[cat][sch] = [];
-              }
+                    data[cat][sch].push(tbl);
+                  }
 
-              data[cat][sch].push(tbl);
-            }
+                  var scat = "";
+                  var max_len = 0;
+                  for(var cat in data) {
 
-            var scat = "";
-            var max_len = 0;
-            for(var cat in data) {
+                    var ssch = "";
+                    for(var schem in data[cat]) {
 
-              var ssch = "";
-              for(var schem in data[cat]) {
+                      var tbls = data[cat][schem];
+                      var stbl = "";
 
-                var tbls = data[cat][schem];
-                var stbl = "";
+                      for(var j=0; j < tbls.length; j++) {
+                        var t_id = escape(cat+"_"+schem+"_"+tbls[j]);
+                        stbl += '<xul:treeitem val="tableName" >'+
+		                  '<xul:treerow>'+
+		                    '<xul:treecell label="'+tbls[j]+'" val="'+t_id+'"/>'+
+		                  '</xul:treerow>'+
+		                '</xul:treeitem>';
+		        max_len = (max_len < tbls[j].length?tbls[j].length:max_len);
+		      }
 
-                for(var j=0; j < tbls.length; j++) {
-                  var t_id = escape(cat+"_"+schem+"_"+tbls[j]);
-                  stbl += '<xul:treeitem val="tableName" >'+
-		            '<xul:treerow>'+
-		              '<xul:treecell label="'+tbls[j]+'" val="'+t_id+'"/>'+
-		            '</xul:treerow>'+
-		          '</xul:treeitem>';
-		  max_len = (max_len < tbls[j].length?tbls[j].length:max_len);
-		}
+		      var l_open = "false";
+		      if (path!=null && path.c===cat && path.s===schem)
+		        l_open = "true";
+                      ssch += 
+		        '<xul:treeitem val="schemaName" open="'+l_open+'" container="true" >'+
+		          '<xul:treerow>'+
+		             '<xul:treecell label="'+schem+'"/>'+
+		          '</xul:treerow>'+
+		          '<xul:treechildren>'+stbl+'</xul:treechildren>'+
+		        '</xul:treeitem>';
+		      max_len = (max_len < schem.length?schem.length:max_len);
+                    }
 
-		var l_open = "false";
-		if (path!=null && path.c===cat && path.s===schem)
-		  l_open = "true";
-                ssch += 
-		  '<xul:treeitem val="schemaName" open="'+l_open+'" container="true" >'+
-		    '<xul:treerow>'+
-		       '<xul:treecell label="'+schem+'"/>'+
-		    '</xul:treerow>'+
-		    '<xul:treechildren>'+stbl+'</xul:treechildren>'+
-		  '</xul:treeitem>';
-		max_len = (max_len < schem.length?schem.length:max_len);
-              }
+                    l_open = "false";
+	            if (path!=null && path.c===cat)
+		      l_open = "true";
+                    scat += 
+		      '<xul:treeitem val="dbName" open="'+l_open+'" container="true" >'+
+		         '<xul:treerow val="load_'+cat+'">'+
+		             '<xul:treecell label="'+cat+'"/>'+
+		         '</xul:treerow>'+
+		         '<xul:treechildren>'+ssch+'</xul:treechildren>'+
+		      '</xul:treeitem>';
+	            max_len = (max_len < cat.length?cat.length:max_len);
 
-              l_open = "false";
-	      if (path!=null && path.c===cat)
-		l_open = "true";
-              scat += 
-		'<xul:treeitem val="dbName" open="'+l_open+'" container="true" >'+
-		   '<xul:treerow val="load_'+cat+'">'+
-		       '<xul:treecell label="'+cat+'"/>'+
-		   '</xul:treerow>'+
-		   '<xul:treechildren>'+ssch+'</xul:treechildren>'+
-		'</xul:treeitem>';
-	      max_len = (max_len < cat.length?cat.length:max_len);
+                  }
 
-            }
+                  stopWorking();
+                  var ctree = ample.query("#mydb").empty();
+                  ctree.append( 
+                    '<xul:tree flex="1" id="db" xmlns:xul="'+sXULNS+'">'+
+                      '<xul:treecols>'+
+	                '<xul:treecol id="dbcol" label="DbCatalogs" width="'+(max_len*pixPerCh+30)+'" primary="true"/>'+
+	              '</xul:treecols>'+
+		      '<xul:treebody >'+
+		        '<xul:treechildren id="dbList">'+scat+'</xul:treechildren>'+
+		      '</xul:treebody>'+
+                    '</xul:tree>');
 
-            stopWorking();
-            setTimeout(function() {
-                var ctree = ample.query("#mydb").empty();
-                ctree.append( 
-              '<xul:tree flex="1" id="db" xmlns:xul="'+sXULNS+'">'+
-                '<xul:treecols>'+
-	          '<xul:treecol id="dbcol" label="DbCatalogs" width="'+(max_len*pixPerCh+30)+'" primary="true"/>'+
-	        '</xul:treecols>'+
-		  '<xul:treebody >'+
-		    '<xul:treechildren id="dbList">'+scat+'</xul:treechildren>'+
-		  '</xul:treebody>'+
-              '</xul:tree>');
-
-                ample.getElementById("dbList").addEventListener("dblclick", dblClickCatch, false);
-            }, 800);
+                  ample.getElementById("dbList").addEventListener("dblclick", dblClickCatch, false);
+	        }
+	      }, hErr);
 
 	  } catch (e) {
             var bt = document.getElementById("connect");
             bt.value="Connect";
             if (!g_permalink_view)
               bt.disabled=false;
-            stopWorking();
             ShowError(e);
             return;
 	  }
 
-	}});
+	}},
+	trErr,
+	{ handleEvent:function()
+	  {
+            Connected = true;
+            var bt = document.getElementById("connect");
+            bt.value="Disconnect";
+            if (!g_permalink_view)
+              bt.disabled=false;
+            stopWorking();
+	  }
+	});
 
-    Connected = true;
-    var bt = document.getElementById("connect");
-    bt.value="Disconnect";
-    if (!g_permalink_view)
-      bt.disabled=false;
-    stopWorking();
 
   } catch (e) {
      var bt = document.getElementById("connect");
      bt.value="Connect";
      if (!g_permalink_view)
        bt.disabled=false;
-     stopWorking();
      ShowError(e);
+     do_logout(get_xmla_origin());
+
   }
   connH = null;
 }
@@ -423,6 +529,8 @@ function prevQuery()
      ample.query("#txtSqlStatement").attr("value", hval.sql);
      ample.query("#txtSqlStatement").attr("tooltiptext", MESS_OUTDATE);
      ample.query("#execTable").attr("tooltiptext", MESS_OUTDATE);
+
+     execQuery();
   }
 
 }
@@ -473,9 +581,9 @@ function DoExecQuery()
     try {
 
       if (queryString.indexOf("!~!",0)==0)
-        ExecQuadQuery("execTable", queryString);
+        ExecuteQuadQuery("execTable", queryString);
       else
-        ExecQuery("execTable", queryString);
+        ExecuteQuery("execTable", queryString);
 
     } catch(e) {
       mess.attr("value", e);
@@ -497,14 +605,15 @@ function DoPkeyQuery()
 
     try {
 
-      ExecQuadQuery("idxTable", opts.query);
+      if (opts.query.indexOf("!~!",0)==0)
+        ExecuteQuadQuery("idxTable", opts.query);
+      else
+        ExecuteQuery("idxTable", opts.query);
+
 
     } catch(e) {
       ShowError(e);
     }
-
-//    clearTimeout(execH);
-//    execH = null;
 }
 
 function DoFkeyQuery()
@@ -514,14 +623,14 @@ function DoFkeyQuery()
 
     try {
 
-      ExecQuadQuery("fkeyTable", opts.query);
+      if (opts.query.indexOf("!~!",0)==0)
+        ExecuteQuadQuery("fkeyTable", opts.query);
+      else
+        ExecuteQuery("fkeyTable", opts.query);
 
     } catch(e) {
       ShowError(e);
     }
-
-//    clearTimeout(execH);
-//    execH = null;
 }
 
 function DoRefQuery()
@@ -531,188 +640,216 @@ function DoRefQuery()
     try {
 
       if (opts.query.indexOf("!~!",0)==0)
-        ExecQuadQuery("refTable", opts.query);
+        ExecuteQuadQuery("refTable", opts.query);
       else
-        ExecQuery("refTable", opts.query);
+        ExecuteQuery("refTable", opts.query);
 
     } catch(e) {
       ShowError(e);
     }
-
-//    clearTimeout(execH);
-//    execH = null;
 }
 
 
-function ExecQuery(lstbox, queryString)
+function ExecuteQuery(lstbox, queryString)
 {
     var opts = gDATA[lstbox];
     var retVal = null;
+    var query = queryString;
+    var lst = null;
+    var isSparql = false;
 
     try {
+      var fixResultSet = startWith(queryString, "~");
 
-     if (gDB)
-       gDB.transaction({
-	 handleEvent: function(trans)
-	 {
-	   try {
-	     if (lstbox == "execTable") {
-	       queryString = checkSPARQL(queryString);
-               ample.query("#txtSqlStatement").attr("value", queryString);
-               if (q_query_has_executed!=null) {
-                 q_query_hist.push({sql: q_query_has_executed });
-                 q_query_has_executed = null;
-                 if (q_query_hist.length > 0)
-                   ample.query("#buttonPrev").attr("disabled","false");
-               }
-	     }
+      if (fixResultSet)
+        query = queryString.substr(1);
 
-             var rs = trans.executeSql(queryString);
-             var lst = parseSQL(queryString);
+      if (lstbox == "execTable") {
+        query = checkSPARQL(query);
+        ample.query("#txtSqlStatement").attr("value", queryString);
+        if (q_query_has_executed!=null) {
+          q_query_hist.push({sql: q_query_has_executed });
+          q_query_has_executed = null;
+          if (q_query_hist.length > 0)
+            ample.query("#buttonPrev").attr("disabled","false");
+        }
+      }
 
-             var isSparql = isSPARQL(queryString);
+      query = fixSELECT_TOP(query);
+      lst = parseSQL(query);
+      isSparql = isSPARQL(query);
 
-             opts.fkey_list = null;
-             opts.metaData = null;
-             opts.qdata = null;
-
-             if (lst != null && lst.length==1) {
-               opts.fkey_list = getFkeyList(trans, lst[0], true);
-               opts.metaData = [];
-
-               var md = rs.metaData;
-
-               for (var i = 0; i < md.columnCount; i++) {
-                 var col_name = md.getColumnName(i);
-
-                 if (opts.fkey_list!=null) {
-                   var ind=0;
-                   for(var x=0; x < opts.fkey_list.length; x++)
-                     if (col_name == opts.fkey_list[x].pcol)
-                       {
-                         ind |= (opts.fkey_list[x].ind=="p")?1:2;
-                       }
-                   opts.metaData.push({name:col_name, key_type:ind});
-                 } else {
-                   opts.metaData.push({name:col_name, key_type:0});
-                 }
-               }
-             }
-
-             stopWorking();
-             setTimeout(function()
-             {
-               FillListBox(lstbox, rs, opts.fkey_list, isSparql);
-
-               if (lstbox == "execTable") {
-                 q_query_has_executed = queryString;
-               } else if (lstbox == "fkeyTable") {
-                 q_fkey_hist.push({sql: queryString });
-                 ample.query("#buttonFBack").attr("disabled","false");
-               } else if (lstbox == "refTable") {
-                 q_ref_hist.push({sql: queryString });
-                 ample.query("#buttonRBack").attr("disabled","false");
-               } else if (lstbox == "idxTable") {
-                 q_pkey_hist.push({sql: queryString });
-                 ample.query("#buttonPBack").attr("disabled","false");
-               }
-
-               if (lstbox=="execTable" && rs!=null) {
-                 var mess = ample.query("#sqlLastError");
-                 var md = rs.metaData;
-                 if (md.columnCount < 1)
-                   mess.attr("value", "Query affected to :"+rs.rowsAffected+" rows");
-                 else
-                   mess.attr("value", "Query returns :"+rs.rows.length+" rows");
-               }
-             }, DEF_TIMEOUT);
-
-             retVal = {state:"OK"};
-
-	   } catch (e) {
-	     retVal = {state:"ERR", message:e};
-	   }
-	 }});
-
+      opts.fkey_list = null;
+      opts.metaData = null;
+      opts.qdata = null;
+      if (gDB && lst!=null && lst.length==1)
+        gDB.transaction({
+          handleEvent: function(trans)
+          {
+            opts.fkey_list = getFkeyList(trans, lst[0], true);
+          }
+        });
     } catch (e) {
-       retVal = {state:"ERR", message:e};
+      ShowError(e);
+      return;
     }
 
-    if (retVal!=null && retVal.state != "OK")
-      throw retVal.message;
 
-    return retVal;
+    var hErr = {
+      handleEvent: function(tr, err) {
+        ShowError(err);
+        return true; 
+      } 
+    };
+
+
+    if (gDBa) {
+      gDBa.transaction({
+        handleEvent: function(trans)
+        {
+          trans.executeSql(query, [],
+            {
+              handleEvent:function(trans, rs)
+              {
+                if (lst != null && lst.length==1) {
+
+                  opts.metaData = [];
+                  var md = rs.metaData;
+
+                  for (var i = 0; i < md.columnCount; i++) {
+                    var col_name = md.getColumnName(i);
+
+                    if (opts.fkey_list!=null) {
+                      var ind=0;
+                      for(var x=0; x < opts.fkey_list.length; x++)
+                        if (col_name == opts.fkey_list[x].pcol)
+                          {
+                            ind |= (opts.fkey_list[x].ind=="p")?1:2;
+                          }
+                      opts.metaData.push({name:col_name, key_type:ind});
+                    } else {
+                      opts.metaData.push({name:col_name, key_type:0});
+                    }
+                  }
+                }
+
+                FillListBox(lstbox, rs, opts.fkey_list, isSparql, fixResultSet);
+
+                if (lstbox == "execTable") {
+                  q_query_has_executed = queryString;
+                } else if (lstbox == "fkeyTable") {
+                  q_fkey_hist.push({sql: queryString });
+                  ample.query("#buttonFBack").attr("disabled","false");
+                } else if (lstbox == "refTable") {
+                  q_ref_hist.push({sql: queryString });
+                  ample.query("#buttonRBack").attr("disabled","false");
+                } else if (lstbox == "idxTable") {
+                  q_pkey_hist.push({sql: queryString });
+                  ample.query("#buttonPBack").attr("disabled","false");
+                }
+
+                if (lstbox=="execTable" && rs!=null) {
+                  var mess = ample.query("#sqlLastError");
+                  var md = rs.metaData;
+                  if (md.columnCount < 1)
+                    mess.attr("value", "Query affected to :"+rs.rowsAffected+" rows");
+                  else
+                    mess.attr("value", "Query returns :"+rs.rows.length+" rows");
+                }
+
+              }
+            },
+            hErr
+            );
+        }
+      },
+      { handleEvent: function(err) { ShowError(err); }},
+      { handleEvent: function() { stopWorking(); }}
+      );
+    }
 }
 
 
 
-function ExecQuadQuery(lstbox, queryString)
+function ExecuteQuadQuery(lstbox, queryString)
 {
     var opts = gDATA[lstbox];
     var retVal = null;
 
+    var hErr = {
+      handleEvent: function(tr, err) { 
+        ShowError(err);
+        return true; 
+      } 
+    };
+
     try {
+      if (lstbox == "execTable") {
+        if (q_query_has_executed!=null) {
+          q_query_hist.push({sql: q_query_has_executed });
+          q_query_has_executed = null;
+          if (q_query_hist.length > 0)
+            ample.query("#buttonPrev").attr("disabled","false");
+        }
+      }
 
-     if (gDB)
-       gDB.transaction({
-	 handleEvent: function(trans)
-	 {
-	   try {
-             if (lstbox == "execTable") {
-               if (q_query_has_executed!=null) {
-                 q_query_hist.push({sql: q_query_has_executed });
-                 q_query_has_executed = null;
-                 if (q_query_hist.length > 0)
-                   ample.query("#buttonPrev").attr("disabled","false");
-               }
-             }
-             var rs = trans.executeSql(queryString.substr(3));
+      opts.fkey_list = null;
+      opts.metaData = null;
+      opts.qdata = null;
 
-             opts.fkey_list = null;
-             opts.metaData = null;
-             opts.qdata = null;
+    } catch (e) {
+      ShowError(e);
+      return;
+    }
 
-             if (lstbox == "execTable") {
-               q_query_has_executed = queryString;
 
-             } else if (lstbox == "fkeyTable") {
-               q_fkey_hist.push({sql: queryString });
-               ample.query("#buttonFBack").attr("disabled","false");
+    if (gDBa) {
+      gDBa.transaction({
+        handleEvent: function(trans)
+        {
+          var query = fixSELECT_TOP(queryString.substr(3));
+          trans.executeSql(query, [],
+            {
+              handleEvent:function(trans, rs)
+              {
+                if (lstbox == "execTable") {
+                  q_query_has_executed = queryString;
 
-             } else if (lstbox == "refTable") {
-               q_ref_hist.push({sql: queryString });
-               ample.query("#buttonRBack").attr("disabled","false");
+                } else if (lstbox == "fkeyTable") {
+                  q_fkey_hist.push({sql: queryString });
+                  ample.query("#buttonFBack").attr("disabled","false");
 
-             } else if (lstbox == "idxTable") {
-               q_pkey_hist.push({sql: queryString });
-               ample.query("#buttonPBack").attr("disabled","false");
-             }
+                } else if (lstbox == "refTable") {
+                  q_ref_hist.push({sql: queryString });
+                  ample.query("#buttonRBack").attr("disabled","false");
 
-             stopWorking();
-             setTimeout(function()
-             {
-               var qdata = {};
-               if (rs) 
-               {
-                 var qdata = {};
-                 var md = rs.metaData;
-                 var mess = ample.query("#sqlLastError");
-                 if (lstbox=="execTable") {
-                   if (md.columnCount < 1)
-                     mess.attr("value", "Query affected to :"+rs.rowsAffected+" rows");
-                   else
-                     mess.attr("value", "Query returns :"+rs.rows.length+" rows");
-                 }
+                } else if (lstbox == "idxTable") {
+                  q_pkey_hist.push({sql: queryString });
+                  ample.query("#buttonPBack").attr("disabled","false");
+                }
 
-                 var max_id_len = (""+rs.rows.length).length;
-                 var id_pref = "0000000000";
+                var qdata = {};
+                if (rs) 
+                {
+                  var qdata = {};
+                  var md = rs.metaData;
+                  var mess = ample.query("#sqlLastError");
+                  if (lstbox=="execTable") {
+                    if (md.columnCount < 1)
+                      mess.attr("value", "Query affected to :"+rs.rowsAffected+" rows");
+                    else
+                      mess.attr("value", "Query returns :"+rs.rows.length+" rows");
+                  }
 
-                 for(var i=0; i < rs.rows.length; i++) {
-                   var q = {};
-                   var row = rs.rows.item(i);
+                  var max_id_len = (""+rs.rows.length).length;
+                  var id_pref = "0000000000";
+
+                  for(var i=0; i < rs.rows.length; i++) {
+                    var q = {};
+                    var row = rs.rows.item(i);
 
 //--- resultSet columns
-                   // 0 - cat#schem#tbl
+                   // 0 - cat:schem:tbl
                    // 1 - col name
                    // 2 - col value
                    // 3 - key type
@@ -731,55 +868,58 @@ function ExecQuadQuery(lstbox, queryString)
 		   // value                      0
 
 
-                   var obj_id = row[md.getColumnName(0)].split("#");
-                   q.obj_id_tbl = obj_id[0];
-                   q.obj_id_key = obj_id[1];
-                   q.tbl = obj_id[0];
-                   q.cname = row[md.getColumnName(1)];
-                   q.cval = row[md.getColumnName(2)];
-                   q.k_type = row[md.getColumnName(3)];
-                   q.rel_tbl = row[md.getColumnName(4)];
-                   q.k_size = row[md.getColumnName(5)];
+                    var obj_id = row[md.getColumnName(0)].split("#");
+                    q.obj_id_tbl = obj_id[0];
+                    q.obj_id_key = obj_id[1];
+                    q.tbl = obj_id[0];
+                    q.cname = row[md.getColumnName(1)];
+                    q.cval = row[md.getColumnName(2)];
+                    q.k_type = row[md.getColumnName(3)];
+                    q.rel_tbl = row[md.getColumnName(4)];
+                    q.k_size = row[md.getColumnName(5)];
 
-                   var j = gQUAD_KEYLIST_START;
-                   q.key = [];
-                   q.k_val = [];
-                   for ( ; j < gQUAD_KEYLIST_START + q.k_size; j++)
-                     q.key.push(row[md.getColumnName(j)]);
-                   for ( ; j < gQUAD_KEYLIST_START + q.k_size + q.k_size; j++)
-                     q.k_val.push(row[md.getColumnName(j)]);
-                   var val = ""+i;
-                   val = (id_pref+val).substr(id_pref.length - max_id_len+val.length);
-                   qdata["r"+val] = q;
-                 }
-                 gDATA[lstbox].qdata = qdata;
-               }
+                    var j = gQUAD_KEYLIST_START;
+                    q.key = [];
+                    q.k_val = [];
+                   
+                    for ( ; j < gQUAD_KEYLIST_START + q.k_size; j++)
+                      q.key.push(row[md.getColumnName(j)]);
+                   
+                    q.obj_id_key = "";
+                   
+                    for (var k=0; j < gQUAD_KEYLIST_START + q.k_size + q.k_size; j++,k++)
+                    {
+                      var s = row[md.getColumnName(j)];
+                      q.k_val. push(s);
+                      if (k>0)
+                        q.obj_id_key += "&";
+                      q.obj_id_key += s;
+                    }
 
-               FillQuadBox(lstbox, qdata);
+                    var val = ""+i;
+                    val = (id_pref+val).substr(id_pref.length - max_id_len+val.length);
+                    qdata["r"+val] = q;
+                  }
+                  gDATA[lstbox].qdata = qdata;
+                }
 
-             }, DEF_TIMEOUT);
-
-             retVal = {state:"OK"};
-
-
-	   } catch (e) {
-	     retVal = {state:"ERR", message:e};
-	   }
-	 }});
-
-    } catch (e) {
-       retVal = {state:"ERR", message:e};
+                FillQuadBox(lstbox, qdata);
+              }
+            },
+            hErr
+            );
+        }
+      },
+      { handleEvent: function(err) { ShowError(err); }},
+      { handleEvent: function() { stopWorking(); }}
+      );
     }
 
-    if (retVal.state != "OK")
-      throw retVal.message;
-
-    return retVal;
 }
 
 
 
-function FillListBox(list, rs, fkeys_lst, isSparqlQuery) {
+function FillListBox(list, rs, fkeys_lst, isSparqlQuery, fixResultSet) {
   try {
     var opts = gDATA[list];
     var str = "";
@@ -800,6 +940,15 @@ function FillListBox(list, rs, fkeys_lst, isSparqlQuery) {
       }
 
       var val = md.getColumnName(col_id);
+      if (fixResultSet && isSparqlQuery) {
+        if (val === 's' || val === 'S')
+          val = "Subject";
+        else if (val === 'p' || val === 'P')
+          val = "Predicate";
+        else if (val === 'o' || val === 'O')
+          val = "Object";
+      }
+
       str += '<xul:listheader minwidth="80" fixed="false" width="'+
                val.length*pixPerCh+'" label="'+val+'"/>';
       cw[i+1] = val.length;
@@ -838,7 +987,7 @@ function FillListBox(list, rs, fkeys_lst, isSparqlQuery) {
 
         var nData = ample.createElementNS(sXULNS, "xul:listcell");
         var r_val = row[md.getColumnName(col_id)];
-        var val = r_val?r_val:"";
+        var val = r_val!=null?r_val.toString():"";
         cw[j+1] = (cw[j+1]<val.length?val.length:cw[j+1]);
 
         if (typeof(opts)!=="undefined" && 
@@ -955,7 +1104,7 @@ function FillQuadBox(list, qdata) {
           col_val = "instanceOf";
         }
         else {
-          col_val = q.cname?q.cname:"";
+          col_val = q.cname!=null?q.cname:"";
         }
 
         nData = ample.createElementNS(sXULNS, "xul:listcell");
@@ -986,8 +1135,7 @@ function FillQuadBox(list, qdata) {
             col_val = rel[0]+":"+rel[1]+":"+q.cval;
           }
           else if (q.k_type & 4){
-//            col_val = q.tbl+":"+key_val+":table";
-            col_val = q.tbl+":table";
+            col_val = q.tbl;
           }
           else if (q.k_type & 1){
             col_val = q.tbl+":"+key_val+":"+q.cval;
@@ -1003,7 +1151,7 @@ function FillQuadBox(list, qdata) {
         } 
         else
         {
-          col_val = q.cval?q.cval:"";
+          col_val = q.cval!=null?q.cval:"";
           if ((col_val.indexOf("http://")==0 || col_val.indexOf("https://")==0 || col_val.indexOf("file://")==0))
           {
             var anc = ample.createElement("a");
@@ -1022,9 +1170,10 @@ function FillQuadBox(list, qdata) {
         if (q.k_type & 8)
           col_val = q.rel_tbl.split("#")[0];
         else
-          col_val = q.tbl?q.tbl:"";
+          col_val = q.tbl!=null?q.tbl:"";
 
-        col_val = (col_val.length>0)?"urn:Document:"+col_val : col_val;
+//        col_val = (col_val.length>0)?"urn:Document:"+col_val : col_val;
+        col_val = (col_val.length>0)?"urn:"+col_val : col_val;
 
         nData = ample.createElementNS(sXULNS, "xul:listcell");
         nData.setAttribute("label", col_val);
@@ -1113,7 +1262,7 @@ function Fill_PKeyList(list, rs, fkeys_lst) {
 
         var nData = ample.createElementNS(sXULNS, "xul:listcell");
         var r_val = row[md.getColumnName(j)];
-        var val = r_val?r_val:"";
+        var val = r_val!=null?r_val:"";
         cw[j+2-gPKEY_INIT_COL] = (cw[j+2-gPKEY_INIT_COL]<val.length?val.length:cw[j+2-gPKEY_INIT_COL]);
 
         nData.setAttribute("label", val);
@@ -1139,31 +1288,43 @@ function Fill_PkeysListBox(trans, TblPath)
   var tbl = TblPath.split(".");
   var fkey_list = null;
 
-  rs = trans.getPrimaryKeys(tbl[0], tbl[1], tbl[2]);
-  var rows = rs.rows;
-  var md = rs.metaData;
-  if (rows.length > 0) {
-     var id = [];
-     for(var i=0; i < rows.length; i++) {
-       var row = rows.item(i);
-       id[i] = {
-         ind: "p",
-       	 cat: row[md.getColumnName(0)],
-       	 sch: row[md.getColumnName(1)],
-       	ptbl: row[md.getColumnName(2)],
-       	pcol: row[md.getColumnName(3)],
-       	ftbl: "",
-       	fcol: "",
-       	fseq: row[md.getColumnName(gPKEY_SEQ_COL)]};
-     }
-     fkey_list = id;
-  }
+  var hErr = {
+       handleEvent: function(tr, err) { 
+        ShowError(err);
+        return true; 
+       } 
+     };
 
-  Fill_PKeyList("idxTable", rs, fkey_list);
-  q_pkey_hist = [];
-  q_pkey_hist.push({sql: "#idxTable#"+TblPath });
+  trans.getPrimaryKeys(tbl[0], tbl[1], tbl[2],
+    {
+      handleEvent:function(trans, rs)
+      {
+        var rows = rs.rows;
+        var md = rs.metaData;
+        if (rows.length > 0) {
+          var id = [];
+          for(var i=0; i < rows.length; i++) {
+            var row = rows.item(i);
+            id[i] = {
+              ind: "p",
+       	      cat: row[md.getColumnName(0)],
+       	      sch: row[md.getColumnName(1)],
+       	     ptbl: row[md.getColumnName(2)],
+       	     pcol: row[md.getColumnName(3)],
+       	     ftbl: "",
+       	     fcol: "",
+       	     fseq: row[md.getColumnName(gPKEY_SEQ_COL)]};
+          }
+          fkey_list = id;
+        }
+      
+        Fill_PKeyList("idxTable", rs, fkey_list);
+        q_pkey_hist = [];
+        q_pkey_hist.push({sql: "#idxTable#"+TblPath });
 
-  ample.query("#buttonPBack").attr("disabled","true");
+        ample.query("#buttonPBack").attr("disabled","true");
+      }
+    }, hErr);
 }
 
 
@@ -1247,7 +1408,7 @@ function Fill_FKeyList(list, rs, fkeys_lst) {
 
         var nData = ample.createElementNS(sXULNS, "xul:listcell");
         var r_val = row[md.getColumnName(j)];
-        var val = r_val?r_val:"";
+        var val = r_val!=null?r_val:"";
         cw[j+3-gFKEY_INIT_COL] = (cw[j+3-gFKEY_INIT_COL]<val.length?val.length:cw[j+3-gFKEY_INIT_COL]);
 
         nData.setAttribute("label", val);
@@ -1274,31 +1435,43 @@ function Fill_FkeysListBox(trans, TblPath)
 
   var fkey_list = null;
 
-  rs = trans.getForeignKeys(tbl[0], tbl[1], tbl[2], tbl[0], null, null);
-  var rows = rs.rows;
-  var md = rs.metaData;
-  if (rows.length > 0) {
-     var id = [];
-     for(var i=0; i < rows.length; i++) {
-       var row = rows.item(i);
-       id[i] = {
-         ind: "f",
-       	 cat: row[md.getColumnName(0)],
-       	 sch: row[md.getColumnName(1)],
-       	ptbl: row[md.getColumnName(2)],
-       	pcol: row[md.getColumnName(3)],
-       	ftbl: row[md.getColumnName(gFKEY_FTBL_COL)],
-       	fcol: row[md.getColumnName(gFKEY_FCOL_COL)],
-       	fseq: row[md.getColumnName(gFKEY_FSEQ_COL)]};
-     }
-     fkey_list = id;
-  }
+  var hErr = {
+       handleEvent: function(tr, err) { 
+        ShowError(err);
+        return true; 
+       } 
+     };
 
-  Fill_FKeyList("fkeyTable", rs, fkey_list);
-  q_fkey_hist = [];
-  q_fkey_hist.push({sql: "#fkeyTable#"+TblPath });
+  trans.getForeignKeys(tbl[0], tbl[1], tbl[2], tbl[0], null, null,
+    {
+      handleEvent:function(trans, rs)
+      {
+        var rows = rs.rows;
+        var md = rs.metaData;
+        if (rows.length > 0) {
+          var id = [];
+          for(var i=0; i < rows.length; i++) {
+            var row = rows.item(i);
+            id[i] = {
+              ind: "f",
+       	      cat: row[md.getColumnName(0)],
+       	      sch: row[md.getColumnName(1)],
+             ptbl: row[md.getColumnName(2)],
+       	     pcol: row[md.getColumnName(3)],
+       	     ftbl: row[md.getColumnName(gFKEY_FTBL_COL)],
+       	     fcol: row[md.getColumnName(gFKEY_FCOL_COL)],
+       	     fseq: row[md.getColumnName(gFKEY_FSEQ_COL)]};
+          }
+          fkey_list = id;
+        }
 
-  ample.query("#buttonFBack").attr("disabled","true");
+        Fill_FKeyList("fkeyTable", rs, fkey_list);
+        q_fkey_hist = [];
+        q_fkey_hist.push({sql: "#fkeyTable#"+TblPath });
+
+        ample.query("#buttonFBack").attr("disabled","true");
+      }
+    }, hErr);
 }
 
 
@@ -1382,7 +1555,7 @@ function Fill_RefsList(list, rs, fkeys_lst) {
 
         var nData = ample.createElementNS(sXULNS, "xul:listcell");
         var r_val = row[md.getColumnName(j)];
-        var val = r_val?r_val:"";
+        var val = r_val!=null?r_val:"";
         cw[j+3-gFKEY_INIT_COL] = (cw[j+3-gFKEY_INIT_COL]<val.length?val.length:cw[j+3-gFKEY_INIT_COL]);
 
         nData.setAttribute("label", val);
@@ -1402,67 +1575,101 @@ function Fill_RefsList(list, rs, fkeys_lst) {
 }
 
 
+function Fill_RefsListBox_1(trans, rs, sqltext, TblPath)
+{
+  var fkey_list = null;
+  var tbl = TblPath.split(".");
+
+  var hErr = {
+       handleEvent: function(tr, err) { 
+        ShowError(err);
+        ample.query("#buttonRBack").attr("disabled","true");
+        return true; 
+       } 
+     };
+
+
+  if (rs != null && rs.rows.length > 0) {
+
+    ample.query("#reftab").attr("label","Super Keys");
+    FillListBox("refTable", rs, null, true, false);
+    q_ref_hist = [];
+    q_ref_hist.push({sql: sqltext });
+    ample.query("#buttonRBack").attr("disabled","true");
+
+  } else {
+      
+    ample.query("#reftab").attr("label","References");
+    rs = trans.getForeignKeys(tbl[0], null, null, tbl[0], tbl[1], tbl[2],
+        {
+          handleEvent:function(trans, rs)
+          {
+            var rows = rs.rows;
+            var md = rs.metaData;
+            if (rows.length > 0) {
+              var id = [];
+              for(var i=0; i < rows.length; i++) {
+                var row = rows.item(i);
+                id[i] = {
+                   ind: "r",
+       	           cat: row[md.getColumnName(0)],
+       	           sch: row[md.getColumnName(1)],
+       	          ptbl: row[md.getColumnName(gFKEY_FTBL_COL)],
+       	          pcol: row[md.getColumnName(gFKEY_FCOL_COL)],
+       	          ftbl: row[md.getColumnName(2)],
+       	          fcol: row[md.getColumnName(3)],
+       	          fseq: row[md.getColumnName(gFKEY_FSEQ_COL)]};
+              }
+              fkey_list = id;
+            }
+
+            Fill_RefsList("refTable", rs, fkey_list);
+            q_ref_hist = [];
+            q_ref_hist.push({sql: "#refTable#"+TblPath });
+            ample.query("#buttonRBack").attr("disabled","true");
+          }
+        }, hErr);
+  }
+}
+
 
 function Fill_RefsListBox(trans, TblPath)
 {
-  try{
-    var tbl = TblPath.split(".");
-  
-    var fkey_list = null;
-    var rs = null;
-    var sqltext = "sparql select distinct ?References"+
+  var tbl = TblPath.split(".");
+
+  var rs = null;
+  var sqltext = "sparql select distinct ?Classes"+
   	" where {?s virtrdf:qmTableName '\""+tbl[0]+"\".\""+tbl[1]+"\".\""+tbl[2]+"\"'; "+
         " virtrdf:qmPredicateRange-rvrFixedValue ?ref. "+
-        " ?ref <http://www.w3.org/2000/01/rdf-schema#domain> ?References . }  LIMIT 100";
+        " ?ref <http://www.w3.org/2000/01/rdf-schema#domain> ?Classes . }  LIMIT 100";
 
-    if (!g_err_in_ref_sparql)
-    	try {
-      	   rs = trans.executeSql(sqltext);
-    	} catch(e) {
-      	   rs = null;
-      	   g_err_in_ref_sparql = true;
-    	}
+  var hErr = {
+       handleEvent: function(tr, err) { 
+        ShowError(err);
+        return true; 
+       } 
+     };
 
-    if (rs != null && rs.rows.length > 0) {
-
-      ample.query("#reftab").attr("label","Super Keys");
-      FillListBox("refTable", rs, null, true);
-      q_ref_hist = [];
-      q_ref_hist.push({sql: sqltext });
-
-    } else {
-      
-      ample.query("#reftab").attr("label","References");
-      rs = trans.getForeignKeys(tbl[0], null, null, tbl[0], tbl[1], tbl[2]);
-
-      var rows = rs.rows;
-      var md = rs.metaData;
-      if (rows.length > 0) {
-        var id = [];
-        for(var i=0; i < rows.length; i++) {
-          var row = rows.item(i);
-          id[i] = {
-             ind: "r",
-       	     cat: row[md.getColumnName(0)],
-       	     sch: row[md.getColumnName(1)],
-       	    ptbl: row[md.getColumnName(gFKEY_FTBL_COL)],
-       	    pcol: row[md.getColumnName(gFKEY_FCOL_COL)],
-       	    ftbl: row[md.getColumnName(2)],
-       	    fcol: row[md.getColumnName(3)],
-       	    fseq: row[md.getColumnName(gFKEY_FSEQ_COL)]};
-        }
-        fkey_list = id;
-      }
-
-      Fill_RefsList("refTable", rs, fkey_list);
-      q_ref_hist = [];
-      q_ref_hist.push({sql: "#refTable#"+TblPath });
-    }
-
-  } finally {
-
-     ample.query("#buttonRBack").attr("disabled","true");
-  }
+    
+  if (!g_err_in_ref_sparql)
+       trans.executeSql(sqltext, [],
+           {
+             handleEvent:function(trans, rs)
+             {
+                Fill_RefsListBox_1(trans, rs, sqltext, TblPath);
+             }
+           },
+           { 
+             handleEvent: function(tr, err) 
+             { 
+      	       rs = null;
+      	       g_err_in_ref_sparql = true;
+               Fill_RefsListBox_1(trans, rs, sqltext, TblPath);
+               return false; 
+             }
+           });
+  else
+    Fill_RefsListBox_1(trans, rs, sqltext, TblPath);
 }
 
 
@@ -1499,33 +1706,40 @@ function execDblClick(path)
 
      updatePermalink({c:path.c, s:path.s, t: path.t}, null, null);
 
-     try {
+     var tblPath = path.c+"."+path.s+"."+path.t;
 
-         var tblPath = path.c+"."+path.s+"."+path.t;
+     ample.query("#txtSqlStatement").attr("value", "select * from "+tblQuoted);
+     ample.query("#txtSqlStatement").attr("tooltiptext", MESS_OUTDATE);
+     ample.query("#execTable").attr("tooltiptext", MESS_OUTDATE);
 
-         ample.query("#txtSqlStatement").attr("value", "select * from "+tblQuoted);
-         ample.query("#txtSqlStatement").attr("tooltiptext", MESS_OUTDATE);
-         ample.query("#execTable").attr("tooltiptext", MESS_OUTDATE);
+     if (gDBa)
+       gDBa.transaction({
+	 handleEvent: function(trans)
+	 {
+	   try {
+             trans.getColumns(path.c, path.s, path.t, null,
+                {handleEvent:function(trans, rs)
+	          {
+                    FillListBox("structTable", rs, null, false, false);
+                  }
+                }, 
+                {handleEvent:function(trans, err) {
+                    ShowError(err);
+                    return true; 
+                  }
+                });
 
-         if (gDB)
-           gDB.transaction({
-	     handleEvent: function(trans)
-	     {
-	       try {
-	         var fkey_list = null;
-                 var rs = trans.getColumns(path.c, path.s, path.t, null);
-                 FillListBox("structTable", rs, null, false);
+             Fill_PkeysListBox(trans, tblPath);
+             Fill_FkeysListBox(trans, tblPath);
+             Fill_RefsListBox(trans, tblPath);
 
-                 Fill_PkeysListBox(trans, tblPath);
-                 Fill_FkeysListBox(trans, tblPath);
-                 Fill_RefsListBox(trans, tblPath);
-	       } catch (e) {
-                 ShowError(e);
-	       }
-	     }});
-     } finally {
-         stopWorking();
-     }
+	   } catch (e) {
+             ShowError(e);
+	   }
+	 }}, 
+         { handleEvent: function(err) { ShowError(err); }},
+         { handleEvent: function() { stopWorking(); }}
+         );
 }
 
 
@@ -1664,7 +1878,8 @@ function valClick(e)
     else if (mode == 2) //Value
     {
       if (q.k_type&4) {
-        loadIntLinks(lstbox, tbl_id,      "",     "", null, true, q.key, q.k_val, null);
+//--        loadIntLinks(lstbox, tbl_id,      "",     "", null, true, q.key, q.k_val, null);
+        loadIntLinks(lstbox, tbl_id,      "",     "", null, true, null, null, null);
 
       } else if (q.k_type&8) {
         var rel = q.rel_tbl.split("#");
@@ -1747,6 +1962,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	  var r_where = null;
    	  var rel_types = 0;
    	  var rel_col = null;
+   	  var r_order_by = " order by 1";
 
 	  if (relation != null) {
 	    var r_path = ""
@@ -1792,14 +2008,12 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
             pkey_id += ", '"+p_col_lst.pkey[i].name+"' as c"+id;
 
             id += p_col_lst.pkey.length;
-	    pkval_id += ", {fn CONVERT(p.\""+p_col_lst.pkey[i].name+"\", SQL_VARCHAR)} as c"+id;
+	    pkval_id += ", p.\""+p_col_lst.pkey[i].name+"\" as c"+id;
 
-	    if (i>0) 
-	      obj_id_key += "||'&'||";
-	    obj_id_key += "{fn CONVERT(p.\""+p_col_lst.pkey[i].name+"\", SQL_VARCHAR)}";
+	    r_order_by += ","+(id+1);
 	  }
 
-	  var obj_id = "'"+tbl_id.cat+":"+tbl_id.sch+":"+tbl_id.tbl+"#'||"+obj_id_key;
+	  var obj_id = "'"+tbl_id.cat+":"+tbl_id.sch+":"+tbl_id.tbl+"#'";
 	  
 	  for(var x = 0; x < tkey_list.length; x++)
 	  {
@@ -1854,7 +2068,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	      var  attr_col = (tkey.ind == "p") ? icol.name : tkey.pcol;
 
 	      q = {};
-              q.s1 = "select distinct  "+obj_id+" as c0,'"+attr_col+"' as c1, {fn CONVERT(p.\""+attr_col+"\", SQL_VARCHAR)} as c2,";
+              q.s1 = "select distinct  "+obj_id+" as c0,'"+attr_col+"' as c1, ''||{fn CONVERT(p.\""+attr_col+"\", SQL_VARCHAR)} as c2,";
 
 // relations  table           8    
 // onekey primary key         4
@@ -1903,12 +2117,20 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
               }
 
               if (id_keys != null && id_vals != null) {
-                for(var j=0; j < id_keys.length; j++)
-                  q.where += " AND p.\""+id_keys[j].name+"\"="+escapeODBCval(id_vals[j], id_keys[j].col_type);
+                for(var j=0; j < id_keys.length; j++) {
+                  if (id_vals[j]==null)
+                    q.where += " AND p.\""+id_keys[j].name+"\" is NULL";
+                  else
+                    q.where += " AND p.\""+id_keys[j].name+"\"="+escapeODBCval(id_vals[j], id_keys[j].col_type);
+                }
               }
 
-              if (col.length >0 && col_val.length >0) 
-                q.where += " AND p.\""+col+"\"="+escapeODBCval(col_val, col_type);
+              if (col.length >0){
+                if (col_val==null)
+                  q.where += " AND p.\""+col+"\" is NULL";
+                else if (col_val.length > 0)
+                  q.where += " AND p.\""+col+"\"="+escapeODBCval(col_val, col_type);
+              } 
               
               query.push(q);
             }
@@ -1931,7 +2153,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
           }
 
           if (sql.length > 0)
-            sql += " order by 1"
+            sql += r_order_by;
           else
             ShowError("Error: query text is empty");
 
@@ -2208,37 +2430,34 @@ function clickBack(lstbox) {
         ample.query("#buttonPBack").attr("disabled","true");
     }
 
+
     if (hval != null)
     {
       if (hval.sql.length>0 && hval.sql[0]=="#") {
         var query = hval.sql.split("#");
 
-        if (gDB)
-          gDB.transaction({
-	   handleEvent: function(trans)
-	   {
-	     try {
+        if (gDBa)
+          gDBa.transaction({
+	    handleEvent: function(trans)
+	    {
+              updatePermalink(null, query[1], null);
+              
+              if (query[1] == "fkeyTable") 
+                Fill_FkeysListBox(trans, query[2]);
+              else if (query[1] == "refTable") 
+                Fill_RefsListBox(trans, query[2]);
+              else if (query[1] == "idxTable") 
+                Fill_PkeysListBox(trans, query[2]);
 
-               updatePermalink(null, query[1], null);
-
-               if (query[1] == "fkeyTable") 
-                 Fill_FkeysListBox(trans, query[2]);
-               else if (query[1] == "refTable") 
-                 Fill_RefsListBox(trans, query[2]);
-               else if (query[1] == "idxTable") 
-                 Fill_PkeysListBox(trans, query[2]);
-	     
-	     } catch (e) {
-               ShowError(e);
-	     } finally {
-	       stopWorking();
-	     }
-	   }});
+	    }}, 
+            { handleEvent: function(err) { ShowError(err); }},
+            { handleEvent: function() { stopWorking(); }}
+            );
        }
        else if (hval.sql.indexOf("!~!",0)==0)
        {
          try {
-           ExecQuadQuery(lstbox, hval.sql);
+           ExecuteQuadQuery(lstbox, hval.sql);
          } catch(e) {
            ShowError(e);
          }
@@ -2246,7 +2465,7 @@ function clickBack(lstbox) {
        else
        {
          try {
-           ExecQuery(lstbox, hval.sql);
+           ExecuteQuery(lstbox, hval.sql);
          } catch(e) {
            ShowError(e);
          }
@@ -2318,6 +2537,31 @@ function isSPARQL(query)
 }
 
 
+function fixSELECT_TOP(query)
+{
+   var qSTART = "SELECT ";
+   var sQuery = ltrim(query.replace(/\n/g, ' ').replace(/\r/g, ''));
+
+   if (! startWith(sQuery.toUpperCase(), 'SELECT'))
+     return query;
+
+   sQuery = sQuery.substring(7);
+   sQuery = ltrim(sQuery);
+
+   var bDISTINCT = startWith(sQuery.toUpperCase(),"DISTINCT");
+   if (bDISTINCT) {
+     qSTART += "DISTINCT ";
+     sQuery = sQuery.substring(9);
+   }
+
+   var topData = sQuery.split(new RegExp(" TOP ","i"));
+   if (topData.length == 2)
+      return query;
+   else
+      return qSTART+"TOP "+MAX_FETCH+" "+topData[0];
+}
+
+
 //SELECT Invoice.*, Customer.* FROM Invoice, Customer
 //SELECT * FROM Invoice, Customer
 //SELECT * FROM relationships LEFT OUTER JOIN users ON relationships.created_by = users.id AND relationships.updated_by = users.id LEFT OUTER JOIN things ON things.relatedrelationship_id = relationships.id  ORDER BY relationships.updated_at DESC LIMIT 0, 20
@@ -2329,6 +2573,7 @@ function parseSQL(query)
 //   if (query_type.toUpperCase() != 'SELECT')
    if (!startWith(ltrim(sqlQuery).toUpperCase(), 'SELECT'))
      return null;
+
 
    var strip_quotes = function(str) {
       return str.replace(/\"/g, '').replace(/\'/g, '').replace(/\[/g, '').replace(/\]/g, '');
@@ -2418,7 +2663,7 @@ function execSparqlLinkClick(lstbox, uri) {
   updatePermalink(null, lstbox, {sql: "#"+uri});
 
   if (lstbox == "execTable") { 
-      var sql = "sparql define sql:describe-mode \"CBD\" describe <"+uri+"> LIMIT 100";
+      var sql = "~sparql define sql:describe-mode \"CBD\" describe <"+uri+"> LIMIT 100";
       ample.query("#txtSqlStatement").attr("value", sql);
       clickExecQuery();
 
@@ -2427,9 +2672,9 @@ function execSparqlLinkClick(lstbox, uri) {
       var sql = "";
       var uri_test = rtrim(uri).toUpperCase();
       if (endWith(uri_test, '#THIS') || endWith(uri_test, '#RECORD'))
-        sql = "sparql define sql:describe-mode \"SCBD\" describe <"+uri+"> LIMIT 100";
+        sql = "~sparql define sql:describe-mode \"SCBD\" describe <"+uri+"> LIMIT 100";
       else
-        sql = "sparql select distinct ?s where {?s ?p <"+uri+">. FILTER (!regex(?s,\"^sys:\",\"i\" )) } LIMIT 100";
+        sql = "sparql select distinct ?Class_Instances where {?Class_Instances ?p <"+uri+">. FILTER (!regex(?Class_Instances,\"^sys:\",\"i\" )) } LIMIT 100";
 
       var opts = gDATA[lstbox];
       opts.query = sql;
@@ -2675,7 +2920,7 @@ function xmlencode(val) {
           val = val.replace(/\&/g,'&'+'amp;').replace(/</g,'&'+'lt;')
                    .replace(/>/g,'&'+'gt;').replace(/\'/g,'&'+'apos;')
                    .replace(/\"/g,'&'+'quot;');
-    return val?val:"";
+    return val!=null?val:"";
 }
 
 
