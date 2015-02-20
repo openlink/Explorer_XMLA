@@ -41,6 +41,19 @@ var gSTRUCT_SWAP_COL = { c1:4, c2:11};
 
 var MAX_FETCH = 500;
 
+var c_PKEY = 4;  // onekey primary key
+var c_MPKEY = 1; // multi-key primary key
+var c_REF_KEY = 8;
+var c_FKEY = 2;
+var c_VALUE = 0;
+// relations  table           8    
+// onekey primary key         4
+// multi primary key          1
+// foreign key                2
+// value                      0
+
+
+
 var gDB = null;
 var gDBa = null;
 var q_query_hist = []; // {sql: queryString}
@@ -120,7 +133,6 @@ function read_cookie (k)
   return (document.cookie.match('(^|; )' + k + '=([^;]*)') || 0)[2];
 }
 **/
-
 function getCookie(name) 
 {
   var matches = document.cookie.match(new RegExp(
@@ -1036,22 +1048,24 @@ function FillQuadBox(list, qdata) {
   try {
     var str = "";
     var cw = [2,8,9,5,9];
-    var c_vis = [false, false, false, false, false];
+    var c_vis = [false, false, false, false, true];
+    var c_label = ["#", "EntityID", "Attribute", "Value", "TableName"];
 
     var lhead = ample.query("#"+list)[0].head;
-    if (typeof(lhead)!=='undefined' && lhead!=null) {
+    if (typeof(lhead)!=='undefined' && lhead!=null && lhead.items.length==c_vis.length) {
       for(var i=0; i < lhead.items.length; i++)
-        c_vis[i] = lhead.items[i].getAttribute("hidden") === "true" ?true:false;
+        if (lhead.items[i].getAttribute("label")===c_label[i])
+          c_vis[i] = lhead.items[i].getAttribute("hidden") === "true" ?true:false;
     }
 
     ample.query("#"+list).empty();
     ample.query("#"+list).append(
       '<xul:listhead xmlns:xul="'+sXULNS+'">'+
-        '<xul:listheader minwidth="20" fixed="false" hidden="'+c_vis[0]+'" width="20" label="#"/>'+
-        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[1]+'" width="50" label="EntityID"/>'+
-        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[2]+'" width="50" label="Attribute"/>'+
-        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[3]+'" width="50" label="Value"/>'+
-        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[4]+'" width="60" label="TableName"/>'+
+        '<xul:listheader minwidth="20" fixed="false" hidden="'+c_vis[0]+'" width="20" label="'+c_label[0]+'"/>'+
+        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[1]+'" width="50" label="'+c_label[1]+'"/>'+
+        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[2]+'" width="50" label="'+c_label[2]+'"/>'+
+        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[3]+'" width="50" label="'+c_label[3]+'"/>'+
+        '<xul:listheader minwidth="80" fixed="false" hidden="'+c_vis[4]+'" width="60" label="'+c_label[4]+'"/>'+
       '</xul:listhead>');
 
     var nBody = ample.createElementNS(sXULNS, "xul:listbody");
@@ -1092,15 +1106,15 @@ function FillQuadBox(list, qdata) {
         cw[1] = (cw[1]<col_val.length?col_val.length:cw[1]);
         
       //Attribute
-        if (q.k_type &8){
+        if (q.k_type &c_REF_KEY){
           col_val = "rel_from:"+q.cname;
         }
         else
-        if (q.k_type &2) {
+        if (q.k_type &c_FKEY) {
           col_val = "rel_to:"+q.cname;
         }
         else
-        if (q.k_type &1 || q.k_type &4) {
+        if (q.k_type &c_MPKEY || q.k_type &c_PKEY) {
           col_val = "instanceOf";
         }
         else {
@@ -1126,19 +1140,16 @@ function FillQuadBox(list, qdata) {
         nData.setAttribute("hidden",c_vis[3]);
         if (q.k_type != 0) 
         {
-          if (q.k_type & 8) {
+          if (q.k_type &c_REF_KEY) {
             var rel = q.rel_tbl.split("#");
             col_val = rel[0]+":"+rel[1]+":"+q.cval;
           }
-          else if (q.k_type & 2) {
+          else if (q.k_type &c_FKEY) {
             var rel = q.rel_tbl.split("#");
             col_val = rel[0]+":"+rel[1]+":"+q.cval;
           }
-          else if (q.k_type & 4){
+          else if (q.k_type &c_PKEY || q.k_type &c_MPKEY){
             col_val = q.tbl;
-          }
-          else if (q.k_type & 1){
-            col_val = q.tbl+":"+key_val+":"+q.cval;
           }
           else{
             col_val = q.tbl+":"+q.cname+":"+q.cval;
@@ -1167,12 +1178,11 @@ function FillQuadBox(list, qdata) {
         cw[3] = (cw[3]<col_val.length?col_val.length:cw[3]);
 
       //TableName
-        if (q.k_type & 8)
+        if (q.k_type &c_REF_KEY)
           col_val = q.rel_tbl.split("#")[0];
         else
           col_val = q.tbl!=null?q.tbl:"";
 
-//        col_val = (col_val.length>0)?"urn:Document:"+col_val : col_val;
         col_val = (col_val.length>0)?"urn:"+col_val : col_val;
 
         nData = ample.createElementNS(sXULNS, "xul:listcell");
@@ -1767,21 +1777,15 @@ function fkeyClickCatch(e)
                       tbl:null};
 
        if (key_type&1) { //Pkey column
-
+         //load pkey, fkey info 
          tbl_id.tbl = fkey.ptbl;
          loadIntLinks(lstbox, tbl_id, col_name, col_val, opts.fkey_list, true, null, null, null);
 
        } else {  // Fkey column
 
-         for(var i=0; i < opts.fkey_list.length; i++) {
-           fkey = opts.fkey_list[i];
-           if (col_name == fkey.pcol && fkey.ind!="p") {
-             tbl_id.tbl =  fkey.ftbl;
-             loadIntLinks(lstbox, tbl_id, fkey.fcol, col_val, null, true, null, null, null);
-             break;
-           }
-         }
-
+         // load only fkeys, that are linked via col_name with the table
+         tbl_id.tbl = fkey.ptbl;
+         loadIntLinks(lstbox, tbl_id, col_name, col_val, null, false, null, null, null);
        }
      }
   }, DEF_TIMEOUT);
@@ -1845,17 +1849,17 @@ function valClick(e)
     var path = q.tbl.split(":");
     var tbl_id = {cat:path[0], sch:path[1], tbl:path[2]};
 
-    var add_pkey = ((q.k_type&4)||(q.k_type&1)?true:false);
+    var add_pkey = ((q.k_type&c_PKEY)||(q.k_type&c_MPKEY)?true:false);
 
     if (mode == 0) //EntityID
       loadIntLinks(lstbox, tbl_id,      "",     "", null, true,     q.key, q.k_val, null);
 
     else if (mode == 1) //Attribute
     {
-      if (q.k_type&8) {
-        loadIntLinks(lstbox, tbl_id, q.cname,     "", null, false, null, null, null);
+      if (q.k_type&c_REF_KEY) {
+        loadIntLinks(lstbox, tbl_id, "",     "", null, false, null, null, null);
       }
-      else if (q.k_type&2) {
+      else if (q.k_type&c_FKEY) {
 
         var rel = q.rel_tbl.split("#");
         var rpath = rel[0].split(":");
@@ -1870,18 +1874,17 @@ function valClick(e)
          
          rel_types: 2};
     
-        loadIntLinks(lstbox, tbl_id, q.cname,     "", null, false, null, null, relation);
+        loadIntLinks(lstbox, tbl_id, "",     "", null, false, null, null, relation);
       }
       else
-        loadIntLinks(lstbox, tbl_id, q.cname,     "", null, true, q.key, q.k_val, null);
+        loadIntLinks(lstbox, tbl_id, "",     "", null, true, q.key, q.k_val, null);
     }
     else if (mode == 2) //Value
     {
-      if (q.k_type&4) {
-//--        loadIntLinks(lstbox, tbl_id,      "",     "", null, true, q.key, q.k_val, null);
+      if (q.k_type&c_PKEY) {
         loadIntLinks(lstbox, tbl_id,      "",     "", null, true, null, null, null);
 
-      } else if (q.k_type&8) {
+      } else if (q.k_type&c_REF_KEY) {
         var rel = q.rel_tbl.split("#");
 
         path = rel[0].split(":");
@@ -1889,7 +1892,7 @@ function valClick(e)
 
         loadIntLinks(lstbox, rel_id, rel[1], q.cval, null, true, null, null, null);
 
-      } else if (q.k_type&2) {
+      } else if (q.k_type&c_FKEY) {
         var rel = q.rel_tbl.split("#");
 
         path = rel[0].split(":");
@@ -1903,7 +1906,7 @@ function valClick(e)
     }
     else if (mode == 3) //TableName
     {
-      if (q.k_type&8) {
+      if (q.k_type&c_REF_KEY) {
         var rel = q.rel_tbl.split("#");
 
         path = rel[0].split(":");
@@ -1920,9 +1923,11 @@ function valClick(e)
   
 
 /**
- tbl  Demo.demo.Customers
+ tbl_id  Demo.demo.Customers
  col  CustomerId
  col_val  ALFKI
+ tkey_list - table indexes
+ add_pkey -
 
  rel_types =
   0 - any
@@ -1934,7 +1939,11 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 		id_keys, id_vals, relation)
 {
   var sql = "";
+  var sql_txt = "";
   var err = false;
+
+  col = col==null?"":col;
+  col_val = col_val==null?"":col_val;
 
   var cmd = { sql: null,
                     tbl: tbl_id.cat+"."+tbl_id.sch+"."+tbl_id.tbl,   
@@ -1993,8 +2002,8 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	  if (tkey_list == null)
             tkey_list = getFkeyList(trans, tbl_id, add_pkey);
 	  
-	  var query=[];
-	  var q = null;
+	  var query_data=[];
+	  var q_data = null;
 
 	  var p_col_lst = getTblColsKeys(trans, tbl_id.cat, tbl_id.sch, tbl_id.tbl);
           var obj_id_key = "";
@@ -2002,6 +2011,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	  var pkval_id = "";
 	  var pkey_size = p_col_lst.pkey.length;
 	  
+	  // Create LIST of PKEY_COL_NAMES and PKEY_COL_VALUES
 	  var c_id = gQUAD_KEYLIST_START;
 	  for(var i=0; i < p_col_lst.pkey.length; i++, c_id++) {
 	    var id = c_id;
@@ -2013,27 +2023,33 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	    r_order_by += ","+(id+1);
 	  }
 
+	  // create EntityID value prefix
 	  var obj_id = "'"+tbl_id.cat+":"+tbl_id.sch+":"+tbl_id.tbl+"#'";
-	  
+
+	  // create table path prefix cat+schema
+	  var qu_path = "";
+          if (tbl_id.cat!=null && tbl_id.cat.length>0)
+             qu_path = qu_path + "\""+tbl_id.cat+"\".";
+          if (tbl_id.sch!=null && tbl_id.sch.length>0)
+             qu_path = qu_path + "\""+tbl_id.sch+"\".";
+
+	  // SCAN table indexes
 	  for(var x = 0; x < tkey_list.length; x++)
 	  {
             var tkey = tkey_list[x];
 
-            if (rel_types == 1 && tkey.ind == "r")
+            if (rel_types == 1 && tkey.ind == "r")  //rel to
                 continue;
             else
-            if (rel_types == 2 && tkey.ind == "f")
+            if (rel_types == 2 && tkey.ind == "f")  //rel from
                 continue;
             else
-            if (rel_types == 0 && tkey.ind == "r")
+            if (rel_types == 0 && tkey.ind == "r")  //for avoid rel_from item, when rel_to exists
+                continue;
+            else
+            if (rel_types == 0 && tkey.ind == "p" && tkey.seq>1)  //for avoid genertion of query duplicates
                 continue;
             
-            var qu_path = "";
-            if (tbl_id.cat!=null && tbl_id.cat.length>0)
-              qu_path = qu_path + "\""+tbl_id.cat+"\".";
-            if (tbl_id.sch!=null && tbl_id.sch.length>0)
-              qu_path = qu_path + "\""+tbl_id.sch+"\".";
-
             var qu_ftbl = qu_path+"\""+tkey.ftbl+"\"";
             var qu_ptbl = qu_path+"\""+tkey.ptbl+"\"";
 
@@ -2059,16 +2075,13 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	      if (tkey.ind != "p" && icol.name!=tkey.fcol)  //add only rows with foreign relations
 	        continue;
 
-	      if (rel_types == 2 && icol.name!=rel_col)
+	      if (rel_types == 2 && icol.name!=rel_col)  // rel from
 	        continue;
 
-	      if (icol.key==8 && tkey.ind=="p")   //mark col as simply if it uses only for foreigns
+	      if (icol.key==c_REF_KEY && tkey.ind=="p")   //mark col as simply value, if it uses only for foreigns
 	        icol.key=0;
  
 	      var  attr_col = (tkey.ind == "p") ? icol.name : tkey.pcol;
-
-	      q = {};
-              q.s1 = "select distinct  "+obj_id+" as c0,'"+attr_col+"' as c1, ''||{fn CONVERT(p.\""+attr_col+"\", SQL_VARCHAR)} as c2,";
 
 // relations  table           8    
 // onekey primary key         4
@@ -2076,20 +2089,32 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 // foreign key                2
 // value                      0
 
-	      if (icol.key!=0 && tkey.ind == "f" && tkey.fcol == icol.name) 
-	        icol.key |= 8;     //ref from foreign to main object
+              if (icol.key!=0 && tkey.ind == "f" && tkey.fcol == icol.name) 
+                icol.key = (icol.key&(~c_FKEY))|c_REF_KEY;  //ref from foreign to main object
 
-	      if (rel_types==2) {
-	        if (icol.key!=0 && tkey.ind == "r" && tkey.fcol == icol.name) 
-	          icol.key |= 2;     //ref from foreign to main object
-	      } else {
-                if (col_lst.pkey.length == 1 && col_lst.pkey[0].name==icol.name && icol.key&1)
-                  icol.key |= 4;
+              if (rel_types==2) {
+                if (icol.key!=0 && tkey.ind == "r" && tkey.fcol == icol.name) 
+                  icol.key |= c_FKEY;     //ref from foreign to main object
+              } else {
+                if (col_lst.pkey.length == 1 && col_lst.pkey[0].name==icol.name && icol.key&c_MPKEY)
+                  icol.key = (icol.key&(~c_MPKEY))|c_PKEY;
+              }
+
+
+              q_data = {};
+              q_data.c0 = obj_id;  
+
+              if ((icol.key&c_PKEY)!=0 || (icol.key&c_MPKEY)!=0) {
+                q_data.c1 = "''";  
+                q_data.c2="''";
+              } else {
+                q_data.c1 = "'"+attr_col+"'";  
+                q_data.c2="''||{fn CONVERT(p.\""+attr_col+"\", SQL_VARCHAR)}";
               }
 
               if (tkey.ind == "p") {
                 var _rel_tbl = rel_tbl;
-                if (icol.key&2) {  // col foreign key
+                if (icol.key&c_FKEY) {  // col foreign key
                   for(var j=0; j < tkey_list.length; j++) {
                     if (tkey_list[j].ind==="r" && tkey_list[j].pcol == icol.name) {
                       _rel_tbl = tkey_list[j].cat+":"
@@ -2100,60 +2125,73 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
                     }
                   }
                 }
-                q.s1 += "'"+icol.key+"' as c3,'"+_rel_tbl+"' as c4, "+pkey_size+" as c5";
+                q_data.c3 ="'"+icol.key+"'";
+                q_data.c4 ="'"+_rel_tbl+"'";
+                q_data.c5 = pkey_size;
               } else {
-                q.s1 += "'"+icol.key+"' as c3,'"+rel_tbl+"#"+tkey.fcol+"' as c4, "+pkey_size+" as c5";
+                q_data.c3="'"+icol.key+"'";
+                q_data.c4="'"+rel_tbl+"#"+tkey.fcol+"'";
+                q_data.c5 = pkey_size;
               }
 
-              q.pkey_id = pkey_id;
-              q.pkval_id = pkval_id;
+              q_data.pkey_id = pkey_id;
+              q_data.pkval_id = pkval_id;
 
               if (tkey.ind == "p") {
-                q.from = " from "+qu_ptbl+" p";
-                q.where =" where 1=1 " ;
+                q_data.from = " from "+qu_ptbl+" p";
+                q_data.where =" where 1=1 " ;
               } else {
-                q.from  = " from "+qu_ftbl+" f, "+qu_ptbl+" p ";
-                q.where = " where f.\""+tkey.fcol+"\"=p.\""+tkey.pcol+"\"" ;
+                q_data.from  = " from "+qu_ftbl+" f, "+qu_ptbl+" p ";
+                q_data.where = " where f.\""+tkey.fcol+"\"=p.\""+tkey.pcol+"\"" ;
               }
 
               if (id_keys != null && id_vals != null) {
                 for(var j=0; j < id_keys.length; j++) {
-                  if (id_vals[j]==null)
-                    q.where += " AND p.\""+id_keys[j].name+"\" is NULL";
-                  else
-                    q.where += " AND p.\""+id_keys[j].name+"\"="+escapeODBCval(id_vals[j], id_keys[j].col_type);
+                  if (id_vals[j]==null) {
+                    q_data.where += " AND p.\""+id_keys[j].name+"\" is NULL";
+                  } else {
+                    q_data.where += " AND p.\""+id_keys[j].name+"\"="+escapeODBCval(id_vals[j], id_keys[j].col_type);
+                  }
                 }
               }
 
               if (col.length >0){
-                if (col_val==null)
-                  q.where += " AND p.\""+col+"\" is NULL";
-                else if (col_val.length > 0)
-                  q.where += " AND p.\""+col+"\"="+escapeODBCval(col_val, col_type);
+                if (col_val==null) {
+                  q_data.where += " AND p.\""+col+"\" is NULL";
+                } else if (col_val.length > 0) {
+                  q_data.where += " AND p.\""+col+"\"="+escapeODBCval(col_val, col_type);
+                }
               } 
               
-              query.push(q);
+              query_data.push(q_data);
             }
           }
 
-          for(var i=0; i < query.length; i++) {
-            q = query[i];
-            if (sql.length > 0)
-              sql += "\n UNION \n ";
+          for(var i=0; i < query_data.length; i++) {
+            var q = query_data[i];
+            if (sql_txt.length > 0)
+              sql_txt += "\n UNION \n ";
 
-            sql += q.s1 + q.pkey_id + q.pkval_id + q.from;
+            sql_txt += "select distinct "+q.c0+" as c0,"+
+                                       q.c1+" as c1,"+
+                                       q.c2+" as c2,"+
+                                       q.c3+" as c3,"+
+                                       q.c4+" as c4,"+
+                                       q.c5+" as c5"+
+                                       q.pkey_id+
+                                       q.pkval_id+
+                                       q.from;
+            if (relation)
+              sql_txt += r_from;
+
+            sql_txt += q.where;
 
             if (relation)
-              sql += r_from;
-
-            sql += q.where;
-
-            if (relation)
-              sql += r_where;
+              sql_txt += r_where;
           }
 
-          if (sql.length > 0)
-            sql += r_order_by;
+          if (sql_txt.length > 0)
+            sql_txt += r_order_by;
           else
             ShowError("Error: query text is empty");
 
@@ -2166,16 +2204,16 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
   if (err)
     return;
 
-  if (sql.length > 0) 
+  if (sql_txt.length > 0) 
   {
     if (lstbox == "execTable") { 
-      ample.query("#txtSqlStatement").attr("value", "!~!"+sql);
+      ample.query("#txtSqlStatement").attr("value", "!~!\n"+sql_txt);
       execQuery();
 
     } else {
 
       var opts = gDATA[lstbox];
-      opts.query = "!~!"+sql;
+      opts.query = "!~!\n"+sql_txt;
 
       if (lstbox == "fkeyTable")
         DoFkeyQuery();
@@ -2376,7 +2414,7 @@ function getTblColsKeys(trans, cat, sch, tbl)
         pkey[i] = { name: rows.item(i)[md.getColumnName(3)], col_type: null };
         for(var j = 0; j < tcol.length; j++) {
           if (pkey[i].name == tcol[j].name) {
-            tcol[j].key = 1;
+            tcol[j].key = c_MPKEY;
             pkey[i].col_type = tcol[j].col_type;
           }
         }
@@ -2386,7 +2424,7 @@ function getTblColsKeys(trans, cat, sch, tbl)
     for(var i=0; i < fkeys.length; i++) {
       for(var j=0; j < tcol.length; j++) {
         if (tcol[j].name == fkeys[i].pcol && tcol[j].key==0) {
-          tcol[j].key |= (fkeys[i].ind=="r")?2:8;
+          tcol[j].key |= (fkeys[i].ind=="r")?c_FKEY:c_REF_KEY;
         }
       }
     }
@@ -2539,7 +2577,7 @@ function isSPARQL(query)
 
 function fixSELECT_TOP(query)
 {
-   var qSTART = "SELECT ";
+   var qSTART = "\nSELECT ";
    var sQuery = ltrim(query.replace(/\n/g, ' ').replace(/\r/g, ''));
 
    if (! startWith(sQuery.toUpperCase(), 'SELECT'))
