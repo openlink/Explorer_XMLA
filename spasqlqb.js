@@ -736,7 +736,7 @@ function ExecuteQuery(lstbox, queryString)
                       for(var x=0; x < opts.fkey_list.length; x++)
                         if (col_name == opts.fkey_list[x].pcol)
                           {
-                            ind |= (opts.fkey_list[x].ind=="p")?1:2;
+                            ind |= (opts.fkey_list[x].ind=="p")?c_MPKEY:c_FKEY;
                           }
                       opts.metaData.push({name:col_name, key_type:ind});
                     } else {
@@ -1776,7 +1776,7 @@ function fkeyClickCatch(e)
                       sch: (fkey.sch!=null?fkey.sch:""),
                       tbl:null};
 
-       if (key_type&1) { //Pkey column
+       if (key_type&c_MPKEY) { //Pkey column
          //load pkey, fkey info 
          tbl_id.tbl = fkey.ptbl;
          loadIntLinks(lstbox, tbl_id, col_name, col_val, opts.fkey_list, true, null, null, null);
