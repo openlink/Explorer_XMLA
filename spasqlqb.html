@@ -34,7 +34,7 @@
 
     <script type="text/javascript" src="jsuri.js"></script>
     <script type="text/javascript" src="throbber.js"></script>
-    <script type="text/javascript" src="spasqlqb.js?v=1.56"></script>
+    <script type="text/javascript" src="spasqlqb.js?v=1.58"></script>
 
     <style type="text/css">
 	html, body {
@@ -77,12 +77,12 @@
   </td>
   <td>
    &nbsp;
-   XMLA URL:
+   Service URL:
   <input id="url" value="/XMLA" style="width: 150px;" type="text" onkeyup="onKeyUp('url',event)" />
    &nbsp;&nbsp;
   </td>
   <td>
-   DSN:
+   Data Source:
   <SELECT id="dsn" style="width: 150px;" onfocus="initDSN()" onkeyup="onKeyUp('dsn',event)">
    <OPTION selected>DSN=Local_Instance</OPTION>
   </SELECT>
@@ -99,7 +99,7 @@
 -->
   </td>
   <td style="text-align: center" width="100px">
-   Ver: 1.56
+   Ver: 1.58
   </td>
   </tr>
   </table>
@@ -117,7 +117,7 @@
 
       <xul:tree flex="1" id="db" >
         <xul:treecols>
-	  <xul:treecol id="dbcol" label="DbCatalogs" width="200" primary="true"/>
+	  <xul:treecol id="dbcol" label="Databases" width="200" primary="true"/>
 	</xul:treecols>
 	<xul:treebody>
 	  <xul:treechildren id="dbList">
