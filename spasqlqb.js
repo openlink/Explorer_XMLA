@@ -478,7 +478,7 @@ function DoConnect(path)
                   ctree.append( 
                     '<xul:tree flex="1" id="db" xmlns:xul="'+sXULNS+'">'+
                       '<xul:treecols>'+
-	                '<xul:treecol id="dbcol" label="DbCatalogs" width="'+(max_len*pixPerCh+30)+'" primary="true"/>'+
+	                '<xul:treecol id="dbcol" label="Databases" width="'+(max_len*pixPerCh+30)+'" primary="true"/>'+
 	              '</xul:treecols>'+
 		      '<xul:treebody >'+
 		        '<xul:treechildren id="dbList">'+scat+'</xul:treechildren>'+
@@ -1702,13 +1702,13 @@ function dblClickCatch(e)
      startWorking();
      setTimeout(function()
      {
-       execDblClick({c:Cat, s:Sch, t:curTab});
+       execDblClick({c:Cat, s:Sch, t:curTab}, null);
      }, DEF_TIMEOUT);
   }
 }
 
 
-function execDblClick(path)
+function execDblClick(path, permalink)
 {
      var tblQuoted = (path.c!=null&&path.c.length>0?"\""+path.c+"\".":"");
       tblQuoted += (path.s!=null&&path.s.length>0?"\""+path.s+"\".":".");
@@ -1739,9 +1739,14 @@ function execDblClick(path)
                   }
                 });
 
-             Fill_PkeysListBox(trans, tblPath);
-             Fill_FkeysListBox(trans, tblPath);
-             Fill_RefsListBox(trans, tblPath);
+	     if (permalink==null || permalink.idx==null)
+               Fill_PkeysListBox(trans, tblPath);
+
+	     if (permalink==null || permalink.fkey==null)
+               Fill_FkeysListBox(trans, tblPath);
+
+	     if (permalink==null || permalink.ref==null)
+               Fill_RefsListBox(trans, tblPath);
 
 	   } catch (e) {
              ShowError(e);
@@ -1881,7 +1886,7 @@ function valClick(e)
     }
     else if (mode == 2) //Value
     {
-      if (q.k_type&c_PKEY) {
+      if (q.k_type&c_PKEY || q.k_type&c_MPKEY) {
         loadIntLinks(lstbox, tbl_id,      "",     "", null, true, null, null, null);
 
       } else if (q.k_type&c_REF_KEY) {
@@ -1941,6 +1946,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
   var sql = "";
   var sql_txt = "";
   var err = false;
+  var r_order_by = " order by 1";
 
   col = col==null?"":col;
   col_val = col_val==null?"":col_val;
@@ -1971,7 +1977,6 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 	  var r_where = null;
    	  var rel_types = 0;
    	  var rel_col = null;
-   	  var r_order_by = " order by 1";
 
 	  if (relation != null) {
 	    var r_path = ""
@@ -2104,7 +2109,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
               q_data = {};
               q_data.c0 = obj_id;  
 
-              if ((icol.key&c_PKEY)!=0 || (icol.key&c_MPKEY)!=0) {
+              if (tkey.ind == "p" && ((icol.key&c_PKEY) || (icol.key&c_MPKEY))) {
                 q_data.c1 = "''";  
                 q_data.c2="''";
               } else {
@@ -2206,6 +2211,8 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
 
   if (sql_txt.length > 0) 
   {
+    sql_txt = "select top "+MAX_FETCH+" * from (\n"+sql_txt+"\n) dt "+r_order_by;
+
     if (lstbox == "execTable") { 
       ample.query("#txtSqlStatement").attr("value", "!~!\n"+sql_txt);
       execQuery();
@@ -2435,6 +2442,26 @@ function getTblColsKeys(trans, cat, sch, tbl)
 
 
 function clickBack(lstbox) {
+  if (lstbox == "fkeyTable") {
+    if (q_fkey_hist.length <= 1) {
+      ample.query("#buttonFBack").attr("disabled","true");
+      return;
+    }
+
+  } else if (lstbox == "refTable") {
+    if (q_fkey_hist.length <= 1) {
+      ample.query("#buttonRBack").attr("disabled","true");
+      return;
+    }
+
+  } else if (lstbox == "idxTable") {
+    if (q_pkey_hist.length <= 1) {
+      ample.query("#buttonPBack").attr("disabled","true");
+      return;
+    }
+  }
+
+  
   startWorking();
 
   setTimeout(function()
@@ -2589,10 +2616,10 @@ function fixSELECT_TOP(query)
    var bDISTINCT = startWith(sQuery.toUpperCase(),"DISTINCT");
    if (bDISTINCT) {
      qSTART += "DISTINCT ";
-     sQuery = sQuery.substring(9);
+     sQuery = ltrim(sQuery.substring(9));
    }
 
-   var topData = sQuery.split(new RegExp(" TOP ","i"));
+   var topData = sQuery.split(new RegExp("TOP ","i"));
    if (topData.length == 2)
       return query;
    else
@@ -2779,7 +2806,7 @@ function loadPermalink(params)
       DoConnect(plink.path);
 
       if (plink.path!=null) {
-        execDblClick(plink.path);
+        execDblClick(plink.path, plink);
         try {
           var id = "#"+plink.path.c+"_"+plink.path.s+"_"+plink.path.t;
           var tbl = ample.query(id);
