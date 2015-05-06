@@ -109,7 +109,9 @@ ample.ready(function() {
 
 function TryConnectAndCheckPermalink()
 {
-  var params = document.location.search.substr(1).split("&");
+  var params = document.location.href.substr(document.location.origin.length+document.location.pathname.length+1);
+//  var params = document.location.search.substr(1).split("&");
+  params = params.split("&");
   var plink = null;
   for(var i=0; i < params.length; i++){
     if (params[i].substr(0,9) === "permlink_")
@@ -194,9 +196,13 @@ function xhr_new ()
 function do_logout (url_origin)
 {
   if (g_sid!=null) {
-    var xhr = xhr_new ();
-    xhr.open ('GET', url_origin+'/val/logout.vsp?sid=' + g_sid, false);
-    xhr.send (null);
+    try {
+      var xhr = xhr_new ();
+      xhr.open ('GET', url_origin+'/val/logout.vsp?sid=' + g_sid, false);
+      xhr.send (null);
+    } catch (ex) {
+      ShowError(ex);
+    }
     g_sid = null;
   }
   set_UserName(null);
@@ -1878,7 +1884,7 @@ function valClick(e)
          p_col: q.cname,
          
          rel_types: 2};
-    
+
         loadIntLinks(lstbox, tbl_id, "",     "", null, false, null, null, relation);
       }
       else
@@ -1986,7 +1992,7 @@ function loadIntLinks(lstbox, tbl_id, col, col_val, tkey_list, add_pkey,
               r_path = r_path + "\""+relation.sch+"\".";
 
 	    r_from = ", "+r_path+"\""+relation.r_tbl+"\" r ";
-	    r_where = " AND p.\""+col+"\"=r.\""+relation.r_col+"\" ";
+	    r_where = " AND p.\""+relation.p_col+"\"=r.\""+relation.r_col+"\" ";
 	    if (typeof(relation.rel_types)==="undefined") {
 	      rel_types = 0;
 	      rel_col = null;
@@ -2449,7 +2455,7 @@ function clickBack(lstbox) {
     }
 
   } else if (lstbox == "refTable") {
-    if (q_fkey_hist.length <= 1) {
+    if (q_ref_hist.length <= 1) {
       ample.query("#buttonRBack").attr("disabled","true");
       return;
     }
