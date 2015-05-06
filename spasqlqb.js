@@ -109,7 +109,9 @@ ample.ready(function() {
 
 function TryConnectAndCheckPermalink()
 {
-  var params = document.location.search.substr(1).split("&");
+  var params = document.location.href.substr(document.location.origin.length+document.location.pathname.length+1);
+//  var params = document.location.search.substr(1).split("&");
+  params = params.split("&");
   var plink = null;
   for(var i=0; i < params.length; i++){
     if (params[i].substr(0,9) === "permlink_")
