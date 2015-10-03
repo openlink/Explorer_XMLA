@@ -2321,6 +2321,10 @@ function escapeODBCval(col_val, col_type)
   {
     case 14: //DB_DECIMAL  3: //SQL_DECIMAL
        return "{fn CONVERT('"+col_val+"', SQL_DECIMAL)}";
+    case 131: //DB_DECIMAL  3: //SQL_NUMERIC
+       return "{fn CONVERT('"+col_val+"', SQL_NUMERIC)}";
+    case 20: //DBTYPE_I8   4: //SQL_BIGINT
+       return "{fn CONVERT('"+col_val+"', SQL_BIGINT)}";
     case 3: //DBTYPE_I4   4: //SQL_INTEGER
        return "{fn CONVERT('"+col_val+"', SQL_INTEGER)}";
     case 2: // DBTYPE_I2  5: //SQL_SMALLINT
@@ -2330,6 +2334,7 @@ function escapeODBCval(col_val, col_type)
     case 5: //DBTYPE_R8  8: //SQL_DOUBLE
        return "{fn CONVERT('"+col_val+"', SQL_DOUBLE)}";
     case 133: //DBTYPE_DBDATE  91: //SQL_TYPE_DATE
+    case 7:   //DBTYPE_DATE  91: //SQL_TYPE_DATE
        return "{fn CONVERT('"+col_val+"', SQL_DATE)}";
     case 134: //DBTYPE_DBTIME  92: //SQL_TYPE_TIME
        return "{fn CONVERT('"+col_val+"', SQL_TIME)}";

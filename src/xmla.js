@@ -4640,7 +4640,8 @@ Xmla.Rowset.prototype = {
             if(minOccurs===1) {
                 getter = function(){
                     var els = _getElementsByTagNameNS (this._row, _xmlnsRowset, null, fieldName);
-                    return valueConverter(me._elementText(els.item(0)));
+                    var val = me._elementText(els.item(0));
+                    return val?valueConverter(val):null;
                 };
             }
             else 
@@ -4648,7 +4649,8 @@ Xmla.Rowset.prototype = {
                 getter = function(){
                     var els = _getElementsByTagNameNS (this._row, _xmlnsRowset, null, fieldName);
                     if (els.length) {
-                        return valueConverter(me._elementText(els.item(0)));
+                        var val = me._elementText(els.item(0));
+                        return val?valueConverter(val):null;
                     }
                     else {
                         return null;
