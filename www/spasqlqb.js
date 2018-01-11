@@ -168,12 +168,54 @@ function deleteCookie(name) {
 }
 
 
+function xhr_new ()
+{
+  var xhr;
+
+  var oXMLHttpRequest = window.XMLHttpRequest;
+  if (oXMLHttpRequest) 
+    {
+      xhr = new oXMLHttpRequest(); /* gecko */
+    } 
+  else if (window.ActiveXObject) 
+    {
+      xhr = new ActiveXObject("Microsoft.XMLHTTP"); /* ie */
+    } 
+  else 
+    {
+      alert("XMLHTTPRequest not available!");
+    }
+  return xhr;
+}
+
 
 function do_logout (url_origin)
 {
-  var callback = location.protocol+ "//"+location.host + location.pathname + location.search;
-  if (g_sid!=null)
-    window.location = location.protocol+ "//"+location.host + "/val/logout.vsp?returnto="+callback;
+  if (g_sid!=null) {
+    try {
+      var xhr = xhr_new ();
+      xhr.open ('GET', url_origin+'/val/logout.vsp?sid=' + g_sid, false);
+      xhr.send (null);
+    } catch (ex) {
+      ShowError(ex);
+    }
+    g_sid = null;
+  }
+  var bt = document.getElementById("connect");
+  bt.value="Connect";
+  bt.disabled=false;
+  deleteCookie('sid');
+  set_UserName(null);
+}
+
+function set_UserName (uname)
+{
+  var l = document.getElementById("uname");
+  if (!uname) {
+    l.innerHTML = "Not logged in";
+  } else {
+    l.innerHTML = ""+uname;
+  }
 }
 
 
@@ -278,6 +320,7 @@ function Connection()
 
 function DoConnect(path) 
 {
+  var ret = true;
 
   try {
 
@@ -438,9 +481,11 @@ function DoConnect(path)
        bt.disabled=false;
      ShowError(e);
      do_logout(get_xmla_origin());
+     ret = false;
 
   }
   connH = null;
+  return ret;
 }
 
 
