@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<?vsp
+  declare val_serviceId, val_sid, val_sidRealm varchar;
+  declare val_uname varchar;
+  declare val_isRealUser integer;
+  declare val_webidGraph varchar;
+  declare val_cert any;
+  declare sparqlPerms int;
+  declare errMsg varchar;
+  declare domain varchar;
+  declare cur_url varchar;
+
+  declare serviceIdHtml, profileName varchar;
+  
+  errMsg := {?'error.msg'}; -- err msg from authentication
+
+
+  domain := http_map_get ('domain');
+  cur_url := HTTP_REQUESTED_URL();
+  
+  -- =========================================================================================
+  -- Check authentication: session ID, WebID, HTTP Auth, and optionally map to a user account
+  -- =========================================================================================
+  val_sidRealm := null;
+  val_webidGraph := uuid();
+  VAL.DBA.get_authentication_details_for_connection (
+    sid=>val_sid,
+    serviceId=>val_serviceId,
+    uname=>val_uname,
+    isRealUser=>val_isRealUser,
+    realm=>val_sidRealm,
+    cert=>val_cert,
+    webidGraph=>val_webidGraph);
+
+
+
+  if (not val_serviceId is null) { 
+    serviceIdHtml := VAL.DBA.get_profile_url (val_serviceId);
+    profileName := coalesce (VAL.DBA.get_profile_name (val_serviceId), val_uname, val_serviceId);
+    if (not serviceIdHtml is null)
+      serviceIdHtml := sprintf ('<a href="%s">%V</a>', serviceIdHtml, profileName);
+    else
+      serviceIdHtml := profileName;
+  }
+
+?>
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<!--
+ *   This file is part of the SPASQL Query Builder project
+ *
+ *   Copyright (C) 2014-2018 OpenLink Software
+ *
+ *   This project is free software; you can redistribute it and/or modify it
+ *   under the terms of the GNU General Public License as published by the
+ *   Free Software Foundation; only version 2 of the License, dated June 1991.
+ *
+ *   This program is distributed in the hope that it will be useful, but
+ *   WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *   General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License along
+ *   with this program; if not, write to the Free Software Foundation, Inc.,
+ *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+-->
+  <head>
+    <title>SPASQL Query Builder</title>
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
+    <link rel="shortcut icon" href="favicon.ico"/>
+    <script type="text/javascript" src="xmla_min.js"></script>
+    <script type="text/javascript" src="webdb_xmla_min.js"></script>
+    <script type="text/javascript" src="./ample/runtime.js"></script>
+    <script type="text/javascript" src="./ample/languages/xul/xul.js"></script>
+    <script type="text/javascript" src="./ample/languages/xhtml/xhtml.js"></script>
+
+    <link type="text/ample+css" href="./ample/languages/xul/themes/default/style.css" rel="stylesheet"/>
+
+    <script type="text/javascript" src="jsuri.js"></script>
+    <script type="text/javascript" src="throbber.js"></script>
+    <script type="text/javascript" src="spasqlqb.js?v=1.63"></script>
+
+    <style type="text/css">
+	html, body {
+		width:	100%;
+		height: 100%;
+		padding:0;
+		margin:	0;
+		overflow:hidden;
+	}
+	body {
+		border: 0;
+	        font-family:Verdana, Tahoma, Arial, sans-serif;
+	        font-size: 13px;
+	}
+	.linkInt {
+		color: #0B7300;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+	.linkExt {
+		color: #0000ff;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+    </style>
+
+  </head>
+
+  <body>
+  <table>
+  <tr>
+<!--
+  <td style="min-width:20px;heigth:20px;">
+     <image id="working" src="throbber.gif" style="display:none;" />
+  </td>
+-->
+  <td width="5px"/>
+  <td style="align-content:center" width="90px">
+     <image src="spasqlqblogo-80.png" />
+  </td>
+  <td>
+   &nbsp;
+   Service URL:
+  <input id="url" value="/XMLA" style="width: 150px;" type="text" onkeyup="onKeyUp('url',event)" />
+   &nbsp;&nbsp;
+  </td>
+  <td>
+   Data Source:
+  <SELECT id="dsn" style="width: 150px;" onfocus="initDSN()" onkeyup="onKeyUp('dsn',event)">
+   <OPTION selected>DSN=Local_Instance</OPTION>
+  </SELECT>
+   &nbsp;&nbsp;
+  </td>
+  <td id="uname">
+      <?vsp if (val_serviceId is null) { ?>
+        Not logged in
+      <?vsp } else { ?>
+        <?vsp http(serviceIdHtml); ?>
+      <?vsp } ?>
+  </td>
+  <td>
+    |
+    <input id="connect" value="Connect" onclick="Connection()" type="button" onkeyup="onKeyUp('connect',event)">
+  </td>
+  <td style="text-align: center" width="100px">
+   Ver: 1.63
+  </td>
+  </tr>
+  </table>
+
+   <script type="application/ample+xml">
+<xul:page
+  xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <xul:spacer height="10"/>
+
+  <xul:hbox flex="1" width="100%">
+
+    <xul:vbox id="mydb" width="210" minwidth="200" >
+
+      <xul:tree flex="1" id="db" >
+        <xul:treecols>
+	  <xul:treecol id="dbcol" label="Databases" width="200" primary="true"/>
+	</xul:treecols>
+	<xul:treebody>
+	  <xul:treechildren id="dbList">
+	  </xul:treechildren>
+	</xul:treebody>
+      </xul:tree>  
+
+    </xul:vbox>
+
+    <xul:splitter />
+
+    <xul:vbox flex="1">
+
+      <xul:tabbox flex="1">
+        <xul:tabs id="tabs">
+		<xul:tab label="Structure"/>
+		<xul:tab label="Primary Keys"/>
+		<xul:tab label="Foreign Keys"/>
+		<xul:tab id="reftab" label="References"/>  
+		<xul:tab label="Execute SQL"/>
+	</xul:tabs>
+	<xul:tabpanels>		
+	  <xul:tabpanel id="stru" >
+
+	        <xul:listbox  flex="1" id="structTable" height="500"/>
+
+	  </xul:tabpanel>
+
+	  <xul:tabpanel id="idx">
+
+            <xul:vbox flex="1">
+	      <xul:spacer height="5"/>
+              <xul:hbox height="25" pack="end">
+	        <xul:spacer width="10"/>
+	        <a id="idx_plink" target="_blank" href="" > permalink </a>
+	        <xul:spacer width="10"/>
+                <xul:button id="buttonPBack" label="Back" disabled="true" onclick="clickBack('idxTable')" />
+	        <xul:spacer width="5"/>
+              </xul:hbox>
+	      <xul:listbox  id="idxTable" height="500"/>
+            </xul:vbox>
+
+	  </xul:tabpanel>
+
+	  <xul:tabpanel id="fkey">
+
+            <xul:vbox flex="1">
+	      <xul:spacer height="5"/>
+              <xul:hbox height="25" pack="end">
+	        <xul:spacer width="10"/>
+	        <a id="fkey_plink" target="_blank" href="" > permalink </a>
+	        <xul:spacer width="10"/>
+                <xul:button id="buttonFBack" label="Back" disabled="true" onclick="clickBack('fkeyTable')" />
+	        <xul:spacer width="5"/>
+              </xul:hbox>
+	      <xul:listbox  id="fkeyTable" height="500"/>
+            </xul:vbox>
+
+	  </xul:tabpanel>
+
+	  <xul:tabpanel id="ref">
+
+            <xul:vbox flex="1">
+	      <xul:spacer height="5"/>
+              <xul:hbox height="25" pack="end">
+	        <xul:spacer width="10"/>
+	        <a id="ref_plink" target="_blank" href="" > permalink </a>
+	        <xul:spacer width="10"/>
+                <xul:button id="buttonRBack" label="Back" disabled="true" onclick="clickBack('refTable')" />
+	        <xul:spacer width="5"/>
+              </xul:hbox>
+	      <xul:listbox  id="refTable" height="500"/>
+            </xul:vbox>
+
+	  </xul:tabpanel>
+
+	  <xul:tabpanel id="exec">
+
+            <xul:vbox flex="1">
+  
+              <xul:textbox width="100%" height="50" id="txtSqlStatement" multiline="true" rows="5" value="SELECT * FROM test" /> 
+
+              <xul:splitter resizeafter="true" resizebefore="false"/>
+
+	      <xul:spacer height="5"/>
+              <xul:hbox height="20">
+	        <xul:spacer width="5"/>
+                <xul:button id="buttonRun" label="RunSQL" onclick="clickExecQuery()" />
+	        <xul:spacer width="20"/>
+                <xul:textbox id="sqlLastError" readonly="true" flex="2" />
+
+	        <xul:spacer width="10"/>
+	        <a id="exec_plink" target="_blank" href="" > permalink </a>
+	        <xul:spacer width="10"/>
+                <xul:button id="buttonPrev" label="Back" disabled="true" onclick="prevQuery()" />
+
+              </xul:hbox>
+   	      <xul:spacer height="5"/>
+
+              <xul:hbox flex="2" height="450">
+	        <xul:listbox  flex="2" id="execTable" height="410"/>
+              </xul:hbox>
+            </xul:vbox>
+
+	  </xul:tabpanel>
+	</xul:tabpanels>
+      </xul:tabbox>
+
+    </xul:vbox>
+
+  </xul:hbox>
+
+
+</xul:page>
+
+<xul:dialog id="badconf" title="Setup Error" width="400" height="300" hidden="true"
+  xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+   <xul:vbox>
+    <xul:spacer height="20"/>
+     Could not locate Openlink HTML5 XMLALite component!
+<!--
+     Could not locate Openlink HTML5 XMLA component!
+     Goto to 
+     http://wikis.openlinksw.com/dataspace/owiki/wiki/UdaWikiWeb/InstallConfigXMLAHTML5Bridge
+     for get properly details
+-->
+   </xul:vbox>
+</xul:dialog>
+   
+<xul:window id="wthrobber" hidechrome="true" width="60" height="50" style="background-color:silver;" hidden="true"
+  xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+   <xul:box align="center" pack="stretch">
+    <canvas id="cv" width="30" height="30"></canvas>
+<!--    <xul:image src="throbber.gif"/> -->
+   </xul:box>
+</xul:window>
+
+<xul:window id="wrestore" hidechrome="true" width="140" height="40" style="background-color:silver;" hidden="true"
+  xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  xmlns:xi="http://www.w3.org/2001/XInclude">
+
+   <xul:hbox align="center" pack="stretch">
+    <xul:spacer width="20"/>
+    Resolving URI
+    <xul:spacer width="20"/>
+    <xul:image src="throbber.gif"/>
+    <xul:spacer width="20"/>
+   </xul:hbox>
+</xul:window>
+
+   </script>
+  </body>
+</html>

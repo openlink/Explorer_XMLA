@@ -1,0 +1,13 @@
+autom4te.cache
+aclocal.m4
+build
+_build.sh
+config.log
+config.status
+configure
+install-sh
+Makefile
+Makefile.in
+missing
+spasqlqb_dav.vad
+spasqlqb.zip

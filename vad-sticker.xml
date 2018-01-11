@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="ASCII"?>
+<!DOCTYPE sticker SYSTEM "vad_sticker.dtd">
+<sticker version="1.0.010505A" xml:lang="en-UK">
+<caption>
+  <name package="Spasqlqb">
+    <prop name="Title" value="SPASQL Query Builder"/>
+    <prop name="Developer" value="OpenLink Software"/>
+    <prop name="Copyright" value="(C) 2018 OpenLink Software"/>
+    <prop name="Download" value="http://www.openlinksw.com/virtuoso"/>
+    <prop name="Download" value="http://www.openlinksw.co.uk/virtuoso"/>
+  </name>
+  <version package="$VERSION$">
+    <prop name="Release Date" value="$PACKDATE$"/>
+    <prop name="Build" value="Release, optimized"/>
+  </version>
+</caption>
+<dependencies>
+  <require>
+    <name package="VAL"></name>
+    <versions_later package="	2.2.1_git56">
+      <prop name="comment" value="Spasqlqb requires a recent version of VAL for authentication and authorization." />
+    </versions_later>
+  </require>
+</dependencies>
+<procedures>
+</procedures>
+<ddls>
+  <sql purpose="pre-install"></sql>
+  <sql purpose="post-install">
+    <![CDATA[
+      DB.DBA.VAD_LOAD_SQL_FILE('/DAV/VAD/spasqlqb/sql/spasqlqb.sql', 1, 'report', 1);
+
+    ]]>
+  </sql>
+  <sql purpose="pre-uninstall">
+  </sql>
+</ddls>
+<resources>
+  <file source_uri="sql/*.sql"     target_uri="spasqlqb/" />
+
+  <file source_uri="www/*.ico"     target_uri="spasqlqb/" />
+  <file source_uri="www/*.js"      target_uri="spasqlqb/" />
+  <file source_uri="www/*.vsp"     target_uri="spasqlqb/" />
+  <file source_uri="www/*.html"    target_uri="spasqlqb/" />
+  <file source_uri="www/*.png"     target_uri="spasqlqb/" />
+  <file source_uri="www/*.gif"     target_uri="spasqlqb/" />
+  <file source_uri="www/ample/*.js"            target_uri="spasqlqb/" />
+  <file source_uri="www/ample/cultures/*.js"   target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/aui/*.js"          target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/aui/themes/default/*.css"   target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/chart/*.js"                 target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/chart/themes/default/*.css" target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/svg/*.js"           target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xhtml/*.js"         target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xhtml/themes/default/*.css"        target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xhtml/themes/default/media/*.png"  target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xhtml/themes/default/media/colorpicker/*.png"   target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xhtml/themes/default/media/colorpicker/*.gif"   target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xhtml/themes/default/media/colorpicker/*.jpg"   target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xmlschema/*.js"    target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xul/*.js"          target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xul/locales/*.js"  target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xul/themes/default/*.css"       target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xul/themes/default/media/*.gif" target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xul/themes/default/media/*.png" target_uri="spasqlqb/" />
+  <file source_uri="www/ample/languages/xul/themes/default/media/*.jpg" target_uri="spasqlqb/" />
+  <file source_uri="www/ample/plugins/cookie/*.js"  target_uri="spasqlqb/" />
+  <file source_uri="www/ample/plugins/forms/*.js"  target_uri="spasqlqb/" />
+  <file source_uri="www/ample/plugins/touch/*.js"  target_uri="spasqlqb/" />
+  <file source_uri="www/ample/plugins/xslt/*.js"   target_uri="spasqlqb/" />
+</resources>
+<registry>
+</registry>
+</sticker>
