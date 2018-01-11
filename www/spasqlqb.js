@@ -2694,8 +2694,12 @@ function loadPermalink(params)
   try {
     plink = JSON.parse(unescape(params));
   } catch (e) {
+    ShowError("Could not parse permalink data: "+e);
+    Connection();
     return;
   }
+
+  // permalink was decoded, try connect and execute query
 
   document.getElementById("url").value =  plink.url;
   document.getElementById("dsn").value =  plink.dsn;

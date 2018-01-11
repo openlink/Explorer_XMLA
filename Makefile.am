@@ -61,6 +61,7 @@ spasqlqb.zip: $(VAD_FILES) Makefile
 	@ln -s $(ROOT_DIR)/www/xmla_min.js ./build/spasqlqb/xmla_min.js
 	@ln -s $(ROOT_DIR)/www/favicon.ico ./build/spasqlqb/favicon.ico
 	@cd build; zip -r ../spasqlqb.zip ./spasqlqb
+	@rm -rf build
 
 
 CLEANFILES = *.vad *.zip
