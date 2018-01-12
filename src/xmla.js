@@ -1611,17 +1611,41 @@ Xmla.prototype = {
     },
     _requestSuccess: function(request) {
         var xhr = request.xhr;
+        var method = request.method;
+        
         this.responseText = xhr.responseText;
+        
         if (_useAX)
           this.responseXML = _createXmlDoc(this.responseText);
         else
           this.responseXML = xhr.responseXML;
 
-        var method = request.method;
-        
-        var soapFault = _getElementsByTagNameNS(this.responseXML, _xmlnsSOAPenvelope, _xmlnsSOAPenvelopePrefix, "Fault");
-        var soapFault1 = _getElementsByTagNameNS(this.responseXML, _xmlnsSOAPenvelope1, _xmlnsSOAPenvelopePrefix, "Fault");
-        if (soapFault.length || soapFault1.length) {
+        if (this.responseXML === null) {
+            request.exception = new Xmla.Exception(
+                Xmla.Exception.TYPE_ERROR,
+                "0",
+                "Could not parse XMLA response",
+                null,
+                "_requestSuccess",
+                request
+            );
+            switch(method){
+                case Xmla.METHOD_DISCOVER:
+                    this._fireEvent(Xmla.EVENT_DISCOVER_ERROR, request);
+                    break;
+                case Xmla.METHOD_EXECUTE:
+                    this._fireEvent(Xmla.EVENT_EXECUTE_ERROR, request);
+                    break;
+            }
+            if (request.error) request.error.call(request.scope ? request.scope : null, this, request, request.exception);
+            if (request.callback) request.callback.call(request.scope ? request.scope : null, Xmla.EVENT_ERROR, this, request, request.exception);
+            this._fireEvent(Xmla.EVENT_ERROR, request);
+        } 
+        else {
+
+          var soapFault = _getElementsByTagNameNS(this.responseXML, _xmlnsSOAPenvelope, _xmlnsSOAPenvelopePrefix, "Fault");
+          var soapFault1 = _getElementsByTagNameNS(this.responseXML, _xmlnsSOAPenvelope1, _xmlnsSOAPenvelopePrefix, "Fault");
+          if (soapFault.length || soapFault1.length) {
             //TODO: extract error info
             if (soapFault.length)
               soapFault = soapFault.item(0);
@@ -1646,8 +1670,8 @@ Xmla.prototype = {
             if (request.error) request.error.call(request.scope ? request.scope : null, this, request, request.exception);
             if (request.callback) request.callback.call(request.scope ? request.scope : null, Xmla.EVENT_ERROR, this, request, request.exception);
             this._fireEvent(Xmla.EVENT_ERROR, request);
-        }
-        else {        
+          }
+          else {        
             switch(method){
                 case Xmla.METHOD_DISCOVER:
                     var rowset = new Xmla.Rowset(this.responseXML, request.requestType);
@@ -1673,6 +1697,7 @@ Xmla.prototype = {
             if (request.success) request.success.call(request.scope ? request.scope : null, this, request, this.response);
             if (request.callback) request.callback.call(request.scope ? request.scope : null, Xmla.EVENT_SUCCESS, this, request, this.response);
             this._fireEvent(Xmla.EVENT_SUCCESS, request);
+          }
         }
     },
 /**
