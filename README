@@ -1,7 +1,7 @@
-OpenLink XMLA Explorer
+SPASQL Query Builder
 ======================
 
-The XMLA Explorer is a simple iSQL-like sample HTML5 program which
+The SPASQL Query Builder is a simple iSQL-like sample HTML5 program which
 allows connection to any browser accessible XMLA web service endpoint.
 
 Once connected, a list of available data sources is displayed, and

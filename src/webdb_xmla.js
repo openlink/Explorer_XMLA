@@ -1,5 +1,5 @@
 /*
- *   This file is part of the XMLA Explorer project
+ *   This file is part of the SPASQL Query Builder project
  *
  *   Copyright (C) 2014-2018 OpenLink Software
  *
