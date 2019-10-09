@@ -145,7 +145,7 @@
     <input id="connect" value="Connect" type="button" onclick="Connection()" onkeyup="onKeyUp('connect',event)">
   </td>
   <td style="text-align: center" width="100px">
-   Ver: 1.66
+   Ver: 1.67
   </td>
   </tr>
   </table>
