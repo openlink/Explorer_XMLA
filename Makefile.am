@@ -52,11 +52,9 @@ spasqlqb.zip: $(VAD_FILES) Makefile
 	@ln -s $(ROOT_DIR)/www/XMLAexplorer.html ./build/spasqlqb/XMLAexplorer.html
 	@ln -s $(ROOT_DIR)/www/spasqlqb.html ./build/spasqlqb/spasqlqb.html
 	@ln -s $(ROOT_DIR)/www/spasqlqb.vsp ./build/spasqlqb/spasqlqb.vsp
-	@ln -s $(ROOT_DIR)/www/spasqlqb.js ./build/spasqlqb/spasqlqb.js
 	@ln -s $(ROOT_DIR)/www/spasqlqblogo-80.png ./build/spasqlqb/spasqlqblogo-80.png
 	@ln -s $(ROOT_DIR)/www/throbber.gif ./build/spasqlqb/throbber.gif
 	@ln -s $(ROOT_DIR)/www/throbber.js ./build/spasqlqb/throbber.js
-	@ln -s $(ROOT_DIR)/www/jsuri.js ./build/spasqlqb/jsuri.js
 	@ln -s $(ROOT_DIR)/www/webdb_xmla_min.js ./build/spasqlqb/webdb_xmla_min.js
 	@ln -s $(ROOT_DIR)/www/xmla_min.js ./build/spasqlqb/xmla_min.js
 	@ln -s $(ROOT_DIR)/www/favicon.ico ./build/spasqlqb/favicon.ico
