@@ -5,7 +5,7 @@
   <name package="Spasqlqb">
     <prop name="Title" value="SPASQL Query Builder"/>
     <prop name="Developer" value="OpenLink Software"/>
-    <prop name="Copyright" value="(C) 2019 OpenLink Software"/>
+    <prop name="Copyright" value="(C) 2020 OpenLink Software"/>
     <prop name="Download" value="http://www.openlinksw.com/virtuoso"/>
     <prop name="Download" value="http://www.openlinksw.co.uk/virtuoso"/>
   </name>
